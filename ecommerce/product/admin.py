@@ -10,6 +10,14 @@ class ProductAdmin(admin.ModelAdmin):
     search_fields = ("key", "id")
 
 
+@admin.register(AccountSession)
+class AccountSessionAdmin(admin.ModelAdmin):
+    list_display = ("id", "proxy", "phone", "status")
+    list_editable = ("proxy",)
+    list_display_links = ("id", "phone")
+    search_fields = ("id", "proxy", "phone", "status")    
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
     list_display = ("id", "user", "session", "track_id", "status")

@@ -35,6 +35,11 @@ class Product(models.Model):
 
 
 class AccountSession(models.Model):
+    class StatusChoices(models.Choices):
+        active = "active"
+        disable = "disable"
+        limit = "limit"
+
     proxy = models.CharField(
         max_length=20,
         verbose_name=_("proxy(ip:port)")
@@ -54,6 +59,11 @@ class AccountSession(models.Model):
     session_string = models.CharField(
         max_length=20,
         verbose_name=_("session string")
+    )
+    status = models.CharField(
+        max_length=50,
+        verbose_name=_("session status"),
+        choices=StatusChoices,
     )
     created = models.DateTimeField(
         auto_now_add=True,
