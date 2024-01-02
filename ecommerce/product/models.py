@@ -17,6 +17,12 @@ class Product(models.Model):
         max_length=50,
         verbose_name=_("product name")
     )
+    country_code = models.CharField(
+        max_length=50,
+        verbose_name=_("country code"),
+        help_text=_("us, ir, uk and etc.."),
+        default=""
+    )
     price = models.PositiveIntegerField(
         default=0,
         verbose_name=_("product price")
