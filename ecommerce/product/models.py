@@ -62,6 +62,11 @@ class AccountSession(models.Model):
         max_length=20,
         verbose_name=_("phone number")
     )
+    password = models.CharField(
+        max_length=64,
+        verbose_name=_("related account password"),
+        default=""
+    )
     session_string = models.CharField(
         max_length=20,
         verbose_name=_("session string")
