@@ -58,7 +58,7 @@ class AccountSession(models.Model):
         blank=True,
     )
     api_hash = models.CharField(
-        max_length=20,
+        max_length=50,
         verbose_name=_("api id"),
         blank=True,
     )
