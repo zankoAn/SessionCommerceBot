@@ -13,7 +13,6 @@ class ProductAdmin(admin.ModelAdmin):
 @admin.register(AccountSession)
 class AccountSessionAdmin(admin.ModelAdmin):
     list_display = ("id", "proxy", "phone", "status")
-    list_editable = ("proxy",)
     list_display_links = ("id", "phone")
     search_fields = ("id", "proxy", "phone", "status")    
 
