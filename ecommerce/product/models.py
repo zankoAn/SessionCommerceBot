@@ -42,39 +42,46 @@ class Product(models.Model):
 
 class AccountSession(models.Model):
     class StatusChoices(models.Choices):
-        active = "active"
-        disable = "disable"
-        limit = "limit"
+        active = "فعال ✅"
+        disable = "غیر فعال ❌"
+        limit = "محدود ⚠️"
+        unknown = "نامشخص 🔘"
 
     proxy = models.CharField(
-        max_length=20,
-        verbose_name=_("proxy(ip:port)")
+        max_length=50,
+        verbose_name=_("proxy(ip:port)"),
+        blank=True,
     )
     api_id = models.CharField(
         max_length=20,
-        verbose_name=_("api hash")
+        verbose_name=_("api hash"),
+        blank=True,
     )
     api_hash = models.CharField(
         max_length=20,
-        verbose_name=_("api id")
+        verbose_name=_("api id"),
+        blank=True,
     )
     phone = models.CharField(
         max_length=20,
-        verbose_name=_("phone number")
+        verbose_name=_("phone number"),
+        blank=True,
     )
     password = models.CharField(
         max_length=64,
-        verbose_name=_("related account password"),
-        default=""
+        verbose_name=_("account password"),
+        default="",
+        blank=True,
     )
     session_string = models.CharField(
-        max_length=20,
+        max_length=400,
         verbose_name=_("session string")
     )
     status = models.CharField(
         max_length=50,
         verbose_name=_("session status"),
         choices=StatusChoices,
+        default=StatusChoices.unknown
     )
     created = models.DateTimeField(
         auto_now_add=True,
