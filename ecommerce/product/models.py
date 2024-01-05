@@ -54,12 +54,12 @@ class AccountSession(models.Model):
     )
     api_id = models.CharField(
         max_length=20,
-        verbose_name=_("api hash"),
+        verbose_name=_("api id"),
         blank=True,
     )
     api_hash = models.CharField(
         max_length=50,
-        verbose_name=_("api id"),
+        verbose_name=_("api hash"),
         blank=True,
     )
     phone = models.CharField(
