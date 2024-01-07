@@ -21,6 +21,8 @@ from utils.load_env import config as CONFIG
 
 
 User = get_user_model()
+my_loop = None
+cache_account_sessions = {}
 
 
 
@@ -313,8 +315,10 @@ class AdminStepHandler(BaseHandler):
             "admin-add-session-string": self.add_session_string,
             "admin-add-session-file": self.add_session_file,
             "admin-add-session-phone": self.add_session_phone,
-            "admin-get-session-proxy": self.get_proxy,
-            "admin-get-api-id-hash": self.get_api_id_and_hash,
+            "admin-get-api-id-hash-session": self.get_api_id_and_hash_session,
+            "admin-get-api-id-hash-login": self.get_api_id_and_hash_login,
+            "admin-get-session-proxy-session": self.get_proxy_session,
+            "admin-get-session-proxy-login": self.get_proxy_login,
         }
         for key, value in vars(base).items():
             setattr(self, key, value)
@@ -356,10 +360,10 @@ class AdminStepHandler(BaseHandler):
             return self.bot.send_message(self.chat_id, error_msg)
 
         session,_ = AccountSession.objects.get_or_create(session_string=self.text)
-        msg, keys = self.retrive_msg_and_keys("admin-get-session-proxy")
+        msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.update_cached_data(session_id=session.id)
-        self.user_qs.update(step="admin-get-session-proxy")
+        self.user_qs.update(step="admin-get-api-id-hash-session")
 
     def add_session_file(self):
         error_msg = "Bad format"
@@ -375,29 +379,30 @@ class AdminStepHandler(BaseHandler):
             return self.bot.send_message(self.chat_id, error_msg)
 
         session, _ = AccountSession.objects.get_or_create(session_string=session_string)
-        msg, keys = self.retrive_msg_and_keys("admin-get-session-proxy")
+        msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.update_cached_data(session_id=session.id)
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.user_qs.update(step="admin-get-session-proxy")
+        self.user_qs.update(step="admin-get-api-id-hash-session")
 
     def add_session_phone(self):
-        AccountSession.objects.create(session_string=self.text)
-        msg = Message.objects.get(current_step="admin-get-session-proxy")
-        self.bot.send_message(self.chat_id, msg.text)
-    
-    def get_proxy(self):
-        error_msg = "Bad format"
-        if len(self.text.split(":")) not in (2,3):
+        error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
+        if not 10 < len(self.text) < 15:
             return self.bot.send_message(self.chat_id, error_msg)
 
-        session_id = cache.get(f"{self.chat_id}:session")["session_id"]
-        AccountSession.objects.update(id=session_id, proxy=self.text)
-        msg = Message.objects.get(current_step="admin-get-api-id-hash")
-        self.bot.send_message(self.chat_id, msg.text)
-        self.user_qs.update(step="admin-get-api-id-hash")
+        session, _ = AccountSession.objects.get_or_create(phone=self.text)
+        msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+        self.update_cached_data(session_id=session.id)
+        self.user_qs.update(step="admin-get-api-id-hash-login")
 
-    def get_api_id_and_hash(self):
-        error_msg = "Bad format"
+    def _get_api_id_and_hash_base(self):
+        error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
+        msg, keys = self.retrive_msg_and_keys("admin-get-session-proxy")
+        session_id = cache.get(f"{self.chat_id}:session")["session_id"]
+        if "دیفالت" in self.text:
+            AccountSession.objects.filter(id=session_id).update(api_id=CONFIG.API_ID, api_hash=CONFIG.API_HASH)
+            return self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+
         # Validate data
         if not 1 < len(self.text.split("\n")) < 3:
             return self.bot.send_message(self.chat_id, error_msg)
@@ -409,12 +414,55 @@ class AdminStepHandler(BaseHandler):
         except:
             return self.bot.send_message(self.chat_id, error_msg)
 
+        AccountSession.objects.filter(id=session_id).update(api_id=api_id, api_hash=api_hash)
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+
+    def get_api_id_and_hash_session(self):
+        self._get_api_id_and_hash_base()
+        self.user_qs.update(step="admin-get-session-proxy-session")
+
+    def get_api_id_and_hash_login(self):
+        self._get_api_id_and_hash_base()
+        self.user_qs.update(step="admin-get-session-proxy-login")
+
+    def _get_proxy_base(self):
+        error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
         session_id = cache.get(f"{self.chat_id}:session")["session_id"]
-        AccountSession.objects.update(id=session_id, api_id=api_id, api_hash=api_hash)
+        if "دیفالت" in self.text:
+            AccountSession.objects.filter(id=session_id).update(proxy=CONFIG.PROXY_SOCKS)
+            return session_id
+
+        if len(self.text.split(":")) not in (2,3):
+            return self.bot.send_message(self.chat_id, error_msg)
+
+        if "//" in self.text:
+            proxy = self.text.split("//")[1]
+        else:
+            proxy = self.text
+
+        AccountSession.objects.filter(id=session_id).update(proxy=proxy)
+        return session_id
+
+    def get_proxy_session(self):
+        session_id = self._get_proxy_base()
         msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
         status = async_to_sync(TMAccountHandler(session_id).runner)("check_session_string_status")
         text = msg.text.format(status=status)
         self.bot.send_message(self.chat_id, text, reply_markup=keys)
+        self.user_qs.update(step=msg.current_step)
+
+    def get_proxy_login(self):
+        global my_loop
+        session_id = self._get_proxy_base()
+        # Create new event loop
+        my_loop = asyncio.new_event_loop()
+        account, result = my_loop.run_until_complete(TMAccountHandler(session_id).send_login_code())
+        # Cache the client object
+        cache_account_sessions[self.chat_id] = account
+        self.update_cached_data(phone_code_hash=result.phone_code_hash)        
+        msg, keys = self.retrive_msg_and_keys("admin-get-login-code")
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+        self.user_qs.update(step=msg.current_step)
 
     def handler(self):
         if callback := self.steps.get(self.user_obj.step):
