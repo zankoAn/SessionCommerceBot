@@ -445,7 +445,7 @@ class AdminStepHandler(BaseHandler):
     def get_proxy_session(self):
         session_id = self._get_proxy_base()
         msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
-        status = async_to_sync(TMAccountHandler(session_id).runner)("check_session_string_status")
+        status = asyncio.run(TMAccountHandler(session_id).runner("check_session_string_status"))
         text = msg.text.format(status=status)
         self.bot.send_message(self.chat_id, text, reply_markup=keys)
         self.user_qs.update(step=msg.current_step)
