@@ -18,8 +18,7 @@ from threading import Thread
 import io
 
 
-from utils.load_env import config
-from asgiref.sync import async_to_sync, sync_to_async
+from utils.load_env import config as CONFIG
 
 
 User = get_user_model()
@@ -69,7 +68,7 @@ class TMAccountHandler:
 
     async def extract_session_string(self):
         proxy = None
-        if config.PROXY_SOCKS:
+        if CONFIG.PROXY_SOCKS:
             proxy = {"scheme": "socks5", "hostname": "127.0.0.1", "port": 1359}
 
         account = Client(
