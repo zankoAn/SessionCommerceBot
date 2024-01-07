@@ -4,7 +4,7 @@ from ecommerce.bot.telegram.telegram import Telegram
 from ecommerce.product.models import Order, Product, AccountSession
 
 from datetime import timedelta
-from pyrogram import Client
+from pyrogram import Client, errors
 
 from django.utils import timezone
 from django.db.models import Q, F, Sum
@@ -14,7 +14,6 @@ from django.core.cache import cache
 
 import json
 import asyncio
-from threading import Thread
 import io
 
 
