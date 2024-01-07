@@ -82,7 +82,8 @@ class TMAccountHandler:
             await account.disconnect()
             return session_string
         except Exception as error:
-            print("Export session string, err: ",error)
+            print("[Error] Export session string: ",error)
+            return False, False
 
     async def send_login_code(self):
         session_obj = await AccountSession.objects.aget(id=self.session_id)
