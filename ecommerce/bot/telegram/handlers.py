@@ -148,6 +148,20 @@ class TMAccountHandler:
 
         return False, "Unexpected error, check server log", False
 
+    async def confirm_password(self, account: Client, password):
+        try:
+            await account.check_password(password)
+            session_obj = await AccountSession.objects.aget(id=self.session_id)
+            session_string = await account.export_session_string()
+            session_obj.session_string = session_string
+            await session_obj.asave()
+            return True, None
+        except errors.PasswordHashInvalid:
+            return False, "Invalid password", errors.PasswordHashInvalid
+
+        except Exception as err:
+            print(err)
+            return False, "Unexpected error, check server log", False
 
     async def runner(self, method_name):
         method = getattr(self, method_name)
@@ -356,6 +370,7 @@ class AdminStepHandler(BaseHandler):
             "admin-get-session-proxy-session": self.get_proxy_session,
             "admin-get-session-proxy-login": self.get_proxy_login,
             "admin-get-login-code": self.get_login_code,
+            "admin-get-login-password": self.get_login_password,
         }
         for key, value in vars(base).items():
             setattr(self, key, value)
@@ -524,6 +539,22 @@ class AdminStepHandler(BaseHandler):
 
         self.bot.send_message(self.chat_id, msg)
 
+    def get_login_password(self):
+        account = cache_account_sessions[self.chat_id]
+        data = cache.get(f"{self.chat_id}:session")
+        session_id = data["session_id"]
+        password = self.text
+        status, msg, action = my_loop.run_until_complete(
+            TMAccountHandler(session_id).confirm_password(account, password)
+        )
+        if status:
+            my_loop.close()
+            msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
+            self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+
+        self.bot.send_message(self.chat_id, msg)
+
+    def handler(self):
         if callback := self.steps.get(self.user_obj.step):
             callback()
 
