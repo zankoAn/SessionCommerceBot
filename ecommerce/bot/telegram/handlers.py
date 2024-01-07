@@ -278,12 +278,11 @@ class TextHandler(BaseHandler):
         key = self.generate_keyboards(msg)
         return msg.text, key
 
-    def admin_add_session_success(self, msg):
-        session_id = cache.get(f"{self.chat_id}:session")["session_id"]
-        status = async_to_sync(TMAccountHandler(session_id).runner)("check_session_string_status")
+    def back_to_add_session(self, msg):
+        if my_loop:
+            my_loop.close()
         keys = self.generate_keyboards(msg)
-        text = msg.text.format(status=status)
-        return text, keys
+        return msg.text, keys
 
     def handler(self):
         messages = Message.objects.filter(key=self.text)
