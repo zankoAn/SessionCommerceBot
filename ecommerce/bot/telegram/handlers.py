@@ -37,7 +37,7 @@ class TMAccountHandler:
         proxy = {
             "scheme": "socks5",
             "hostname": _proxy[0],
-            "port": _proxy[1]
+            "port": int(_proxy[1])
         }
         account = Client(
             name="",
