@@ -516,6 +516,11 @@ class AdminStepHandler(BaseHandler):
             self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
             return
 
+        if action == errors.SessionPasswordNeeded:
+            msg, keys = self.retrive_msg_and_keys("admin-get-login-password")
+            self.user_qs.update(step=msg.current_step)
+            self.bot.send_message(self.chat_id, msg.text)
+            return
 
         self.bot.send_message(self.chat_id, msg)
 
