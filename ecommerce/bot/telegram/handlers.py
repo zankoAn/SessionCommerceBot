@@ -112,6 +112,43 @@ class TMAccountHandler:
             print("[Error] Send login code: ",error)
             return False
 
+    async def sign_in_account(self, account: Client, phone_code_hash, login_code):
+        session_obj = await AccountSession.objects.aget(id=self.session_id)
+        try:
+            user = await account.sign_in(
+                phone_number=session_obj.phone,
+                phone_code_hash=phone_code_hash,
+                phone_code=login_code
+            )
+            print(user)
+            if user.id:
+                session_string = await account.export_session_string()
+                session_obj.session_string = session_string
+                await session_obj.asave()
+                return True, None
+        except errors.SessionPasswordNeeded as err:
+            hint = await account.get_password_hint()
+            return False, hint, errors.SessionPasswordNeeded
+
+        except errors.PhoneCodeInvalid:
+            return False, "Login code invalid", errors.PhoneCodeInvalid
+
+        except errors.PhoneCodeExpired:
+            return False, "Login code expired", errors.PhoneCodeExpired
+
+        except errors.PhonePasswordFlood:
+            return False, "Password foold", errors.PhonePasswordFlood
+
+        except errors.FloodWait:
+            return False, "FoolWait tray later", errors.FloodWait
+
+        except Exception as err:
+            print(err)
+            return False, "Unexpected error, check server log", False
+
+        return False, "Unexpected error, check server log", False
+
+
     async def runner(self, method_name):
         method = getattr(self, method_name)
         session_obj, account = await self.intialize_client()
@@ -318,6 +355,7 @@ class AdminStepHandler(BaseHandler):
             "admin-get-api-id-hash-login": self.get_api_id_and_hash_login,
             "admin-get-session-proxy-session": self.get_proxy_session,
             "admin-get-session-proxy-login": self.get_proxy_login,
+            "admin-get-login-code": self.get_login_code,
         }
         for key, value in vars(base).items():
             setattr(self, key, value)
@@ -463,7 +501,24 @@ class AdminStepHandler(BaseHandler):
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.user_qs.update(step=msg.current_step)
 
-    def handler(self):
+    def get_login_code(self):
+        account = cache_account_sessions[self.chat_id]
+        data = cache.get(f"{self.chat_id}:session")
+        session_id = data["session_id"]
+        phone_code_hash = data["phone_code_hash"]
+        login_code = self.text
+        status, msg, action = my_loop.run_until_complete(
+            TMAccountHandler(session_id).sign_in_account(account, phone_code_hash, login_code)
+        )
+        if status:
+            msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
+            self.user_qs.update(step="admin-add-session")
+            self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+            return
+
+
+        self.bot.send_message(self.chat_id, msg)
+
         if callback := self.steps.get(self.user_obj.step):
             callback()
 
