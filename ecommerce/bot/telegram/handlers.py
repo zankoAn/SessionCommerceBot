@@ -83,6 +83,30 @@ class TMAccountHandler:
             return session_string
         except Exception as error:
             print("Export session string, err: ",error)
+
+    async def send_login_code(self):
+        session_obj = await AccountSession.objects.aget(id=self.session_id)
+        _proxy = session_obj.proxy.split(":")
+        proxy = {
+            "scheme": "socks5",
+            "hostname": _proxy[0],
+            "port": int(_proxy[1])
+        }
+        account = Client(
+            name="",
+            phone_number=session_obj.phone,
+            api_id=session_obj.api_id,
+            api_hash=session_obj.api_hash,
+            proxy=proxy,
+            in_memory=True,
+        )
+        try:
+            await account.connect()
+            result = await account.send_code(session_obj.phone)
+            print(result)
+            return account, result
+        except Exception as error:
+            print("[Error] Send login code: ",error)
             return False
 
     async def runner(self, method_name):
