@@ -154,6 +154,7 @@ class TMAccountHandler:
             session_obj = await AccountSession.objects.aget(id=self.session_id)
             session_string = await account.export_session_string()
             session_obj.session_string = session_string
+            session_obj.password = password
             await session_obj.asave()
             return True, None
         except errors.PasswordHashInvalid:
