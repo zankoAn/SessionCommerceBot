@@ -640,10 +640,21 @@ class UserCallbackHandler(BaseCallbackHandler):
     def __init__(self, base) -> None:
         self.callback_handlers = {
             "country_": self.get_phone_number,
-            "login_code": self.get_login_code
+            "show_countrys": self.show_countrys,
         }
         for key, value in vars(base).items():
             setattr(self, key, value)
+
+    def update_cached_data(self, **kwargs):
+        cached_data = cache.get(f"{self.chat_id}:order", {})
+        for key, value in kwargs.items():
+            cached_data[key] = value
+        cache.set(f"{self.chat_id}:order", cached_data, timeout=None)
+
+    def show_countrys(self):
+        msg = Message.objects.get(current_step="buy_phone_number")
+        text, keys = TextHandler(self).buy_phone_number(msg)
+        self.bot.edit_message_text(self.chat_id, self.message_id, text, reply_markup=keys)
 
     def get_phone_number(self):
         # TODO: retrive random session.
