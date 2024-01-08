@@ -556,6 +556,11 @@ class AdminStepHandler(BaseHandler):
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
             self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
 
+        if action == errors.PasswordHashInvalid:
+            msg_obj, keys = self.retrive_msg_and_keys("admin-get-login-password")
+            self.bot.send_message(self.chat_id, msg_obj.text.format(hint=msg))
+            return
+
         self.bot.send_message(self.chat_id, msg)
 
     def handler(self):
