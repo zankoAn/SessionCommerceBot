@@ -509,6 +509,7 @@ class AdminStepHandler(BaseHandler):
     def get_proxy_login(self):
         global my_loop
         session_id = self._get_proxy_base()
+        self.bot.send_message(self.chat_id, "⏳")
         # Create new event loop
         my_loop = asyncio.new_event_loop()
         account, result = my_loop.run_until_complete(TMAccountHandler(session_id).send_login_code())
