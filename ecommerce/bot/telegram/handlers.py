@@ -460,7 +460,7 @@ class AdminStepHandler(BaseHandler):
 
         phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
         product = Product.objects.get(phone_code=phone_code)
-        if user_phone[:1] != product[:1]:
+        if user_phone[:1] != phone_code[:1]:
             return self.bot.send_message(self.chat_id, error_msg)
 
         session, _ = AccountSession.objects.get_or_create(phone=user_phone, product=product)
