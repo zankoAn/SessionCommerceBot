@@ -53,6 +53,12 @@ class AccountSession(models.Model):
         limit = "محدود ⚠️"
         unknown = "نامشخص 🔘"
 
+    product = models.ForeignKey(
+        to=Product,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True
+    )
     proxy = models.CharField(
         max_length=50,
         verbose_name=_("proxy(ip:port)"),
