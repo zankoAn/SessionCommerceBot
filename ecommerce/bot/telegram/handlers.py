@@ -156,7 +156,7 @@ class TMAccountHandler:
             session_obj.session_string = session_string
             session_obj.password = password
             await session_obj.asave()
-            return True, None
+            return True, None, None
         except errors.PasswordHashInvalid:
             error = "❌ Invalid Password"
             hint = await account.get_password_hint()
