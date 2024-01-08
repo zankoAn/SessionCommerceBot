@@ -125,8 +125,8 @@ class TMAccountHandler:
                 session_string = await account.export_session_string()
                 session_obj.session_string = session_string
                 await session_obj.asave()
-                return True, None
-        except errors.SessionPasswordNeeded as err:
+                return True, None, None
+        except errors.SessionPasswordNeeded:
             hint = await account.get_password_hint()
             return False, hint, errors.SessionPasswordNeeded
 
