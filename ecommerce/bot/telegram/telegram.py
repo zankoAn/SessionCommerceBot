@@ -161,3 +161,15 @@ class Telegram:
             return request.content
         except Exception as error:
             print("Error in Telegram Class: ", error)
+
+    def delete_message(self, chat_id, message_id: int):
+        """
+        This Method for delete_Message in telegram.
+        """
+        method = 'GET'
+        data = {
+            "chat_id": str(chat_id),
+            "message_id": message_id
+        }
+        result = self.bot("deleteMessage", data=data, method=method)
+        return result
