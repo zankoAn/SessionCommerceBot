@@ -23,6 +23,12 @@ class Product(models.Model):
         help_text=_("us, ir, uk and etc.."),
         default=""
     )
+    phone_code = models.CharField(
+        max_length=50,
+        verbose_name=_("phone code"),
+        help_text=_("+98, +1, +964, +234 and etc.."),
+        default=""
+    )
     price = models.PositiveIntegerField(
         default=0,
         verbose_name=_("product price")
@@ -41,7 +47,7 @@ class Product(models.Model):
 
 
 class AccountSession(models.Model):
-    class StatusChoices(models.Choices):
+    class StatusChoices(models.TextChoices):
         active = "فعال ✅"
         disable = "غیر فعال ❌"
         limit = "محدود ⚠️"
@@ -80,7 +86,7 @@ class AccountSession(models.Model):
     status = models.CharField(
         max_length=50,
         verbose_name=_("session status"),
-        choices=StatusChoices,
+        choices=StatusChoices.choices,
         default=StatusChoices.unknown
     )
     created = models.DateTimeField(
