@@ -332,6 +332,15 @@ class TextHandler(BaseHandler):
         key = self.generate_keyboards(msg)
         return msg.text, key
 
+    def admin_get_country(self, msg):
+        products = Product.objects.all()
+        keys = ""
+        for product in products:
+            keys += f"\n{product.name}:add_session_phone_code_{product.phone_code}:"
+        msg.keys = keys.strip()
+        key = self.generate_keyboards(msg)
+        return msg.text, key
+
     def back_to_add_session(self, msg):
         if my_loop:
             my_loop.close()
@@ -367,7 +376,7 @@ class AdminStepHandler(BaseHandler):
             "admin-get-user-info": self.user_info,
             "admin-add-session-string": self.add_session_string,
             "admin-add-session-file": self.add_session_file,
-            "admin-add-session-phone": self.add_session_phone,
+            "admin-get-phone-number": self.add_session_phone,
             "admin-get-api-id-hash-session": self.get_api_id_and_hash_session,
             "admin-get-api-id-hash-login": self.get_api_id_and_hash_login,
             "admin-get-session-proxy-session": self.get_proxy_session,
@@ -414,7 +423,9 @@ class AdminStepHandler(BaseHandler):
         if len(self.text) < 60:
             return self.bot.send_message(self.chat_id, error_msg)
 
-        session,_ = AccountSession.objects.get_or_create(session_string=self.text)
+        phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
+        product = Product.objects.get(phone_code=phone_code)
+        session,_ = AccountSession.objects.get_or_create(session_string=self.text, product=product)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.update_cached_data(session_id=session.id)
@@ -429,11 +440,13 @@ class AdminStepHandler(BaseHandler):
         with open("/tmp/session_file.session", "wb") as session_file:
             session_file.write(content)
 
-        session_string = async_to_sync(TMAccountHandler().extract_session_string)()
+        session_string = asyncio.run(TMAccountHandler().extract_session_string())
         if not session_string:
             return self.bot.send_message(self.chat_id, error_msg)
 
-        session, _ = AccountSession.objects.get_or_create(session_string=session_string)
+        phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
+        product = Product.objects.get(phone_code=phone_code)
+        session, _ = AccountSession.objects.get_or_create(session_string=session_string, product=product)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.update_cached_data(session_id=session.id)
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
@@ -441,10 +454,16 @@ class AdminStepHandler(BaseHandler):
 
     def add_session_phone(self):
         error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
-        if not 10 < len(self.text) < 15:
+        user_phone = self.text.replace(" ", "")
+        if not 10 < len(user_phone) < 15:
             return self.bot.send_message(self.chat_id, error_msg)
 
-        session, _ = AccountSession.objects.get_or_create(phone=self.text)
+        phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
+        product = Product.objects.get(phone_code=phone_code)
+        if user_phone[:1] != product[:1]:
+            return self.bot.send_message(self.chat_id, error_msg)
+
+        session, _ = AccountSession.objects.get_or_create(phone=user_phone, product=product)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.update_cached_data(session_id=session.id)
@@ -555,6 +574,7 @@ class AdminStepHandler(BaseHandler):
             my_loop.close()
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
             self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+            return
 
         if action == errors.PasswordHashInvalid:
             msg_obj, keys = self.retrive_msg_and_keys("admin-get-login-password")
@@ -580,7 +600,6 @@ class UserStepHandler(BaseHandler):
         }
         for key, value in vars(base).items():
             setattr(self, key, value)
-
 
     def make_payment(self):
         msg = Message.objects.filter(current_step="payment").first()
@@ -641,6 +660,8 @@ class UserCallbackHandler(BaseCallbackHandler):
         self.callback_handlers = {
             "country_": self.get_phone_number,
             "show_countrys": self.show_countrys,
+            "login_code": self.get_login_code,
+            "add_session_phone_code_": self.choice_country,
         }
         for key, value in vars(base).items():
             setattr(self, key, value)
@@ -650,6 +671,15 @@ class UserCallbackHandler(BaseCallbackHandler):
         for key, value in kwargs.items():
             cached_data[key] = value
         cache.set(f"{self.chat_id}:order", cached_data, timeout=None)
+
+    def choice_country(self):
+        msg = Message.objects.get(current_step="admin-get-phone-number")
+        self.bot.delete_message(self.chat_id, self.message_id)
+        keys = self.generate_keyboards(msg)
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+        phone_code = self.callback_data.replace("add_session_phone_code_", "")
+        cache.set(f"{self.chat_id}:add-session-phone-code", phone_code)
+        self.user_qs.update(step=msg.current_step)
 
     def show_countrys(self):
         msg = Message.objects.get(current_step="buy_phone_number")
