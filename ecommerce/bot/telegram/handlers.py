@@ -315,7 +315,7 @@ class TextHandler(BaseHandler):
         )
 
     def buy_phone_number(self, msg):
-        products = Product.objects.all()
+        products = Product.objects.filter(accounts__status=AccountSession.StatusChoices.active)
         keys = ""
         for product in products:
             keys += f"\n{product.price:,} | {product.name}:country_{product.country_code}:"
