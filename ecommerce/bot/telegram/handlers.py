@@ -119,6 +119,7 @@ class TMAccountHandler:
             if user.id:
                 session_string = await account.export_session_string()
                 session_obj.session_string = session_string
+                session_obj.status = AccountSession.StatusChoices.active
                 await session_obj.asave()
                 return True, None, None
         except errors.SessionPasswordNeeded:
@@ -150,6 +151,7 @@ class TMAccountHandler:
             session_string = await account.export_session_string()
             session_obj.session_string = session_string
             session_obj.password = password
+            session_obj.status = AccountSession.StatusChoices.active
             await session_obj.asave()
             return True, None, None
         except errors.PasswordHashInvalid:
