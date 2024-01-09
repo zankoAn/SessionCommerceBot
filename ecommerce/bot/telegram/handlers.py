@@ -31,7 +31,7 @@ class TMAccountHandler:
     def __init__(self, session_id = 0) -> None:
         self.session_id = session_id
 
-    async def intialize_client(self):
+    async def check_session_status(self):
         session_obj = await AccountSession.objects.aget(id=self.session_id)
         _proxy = session_obj.proxy.split(":")
         proxy = {
@@ -48,24 +48,19 @@ class TMAccountHandler:
             in_memory=True,
             no_updates=True
         )
-        return session_obj, account
-
-    async def check_session_string_status(self, session_obj:AccountSession, account: Client):
         try:
             if await account.connect():
-                x = await account.get_me()
-                print(x)
+                await account.get_me()
                 session_obj.status = AccountSession.StatusChoices.active
                 await session_obj.asave()
                 await account.disconnect()
-                return session_obj.status.value
+                return True, session_obj.status.value, True
         except Exception as err:
             print(err)
-            session_obj.status = AccountSession.StatusChoices.disable
-            await session_obj.asave()
-            return session_obj.status.value
-        finally:
-            return session_obj.status.value
+
+        session_obj.status = AccountSession.StatusChoices.disable
+        await session_obj.asave()
+        return False, session_obj.status.value, None
 
     async def extract_session_string(self):
         proxy = None
@@ -165,12 +160,6 @@ class TMAccountHandler:
         except Exception as err:
             print(err)
             return False, "Unexpected error, check server log", False
-
-    async def runner(self, method_name):
-        method = getattr(self, method_name)
-        session_obj, account = await self.intialize_client()
-        result = await method(session_obj, account)
-        return result
 
 
 class BaseHandler:
@@ -520,8 +509,8 @@ class AdminStepHandler(BaseHandler):
     def get_proxy_session(self):
         session_id = self._get_proxy_base()
         msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
-        status = asyncio.run(TMAccountHandler(session_id).runner("check_session_string_status"))
-        text = msg.text.format(status=status)
+        status, data, err = asyncio.run(TMAccountHandler(session_id).check_session_status())
+        text = msg.text.format(status=data)
         self.bot.send_message(self.chat_id, text, reply_markup=keys)
         self.user_qs.update(step=msg.current_step)
 
