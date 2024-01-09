@@ -685,7 +685,7 @@ class UserCallbackHandler(BaseCallbackHandler):
         cache.set(f"{self.chat_id}:add-session-phone-code", phone_code)
         self.user_qs.update(step=msg.current_step)
 
-    def show_countrys(self):
+    def back_to_show_countrys(self):
         msg = Message.objects.get(current_step="buy_phone_number")
         text, keys = TextHandler(self).buy_phone_number(msg)
         self.bot.edit_message_text(self.chat_id, self.message_id, text, reply_markup=keys)
