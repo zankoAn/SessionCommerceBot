@@ -323,7 +323,7 @@ class TextHandler(BaseHandler):
         key = self.generate_keyboards(msg)
         return msg.text, key
 
-    def admin_get_country(self, msg):
+    def _show_country(self, msg):
         products = Product.objects.all()
         keys = ""
         for product in products:
@@ -331,6 +331,18 @@ class TextHandler(BaseHandler):
         msg.keys = keys.strip()
         key = self.generate_keyboards(msg)
         return msg.text, key
+
+    def admin_add_session_file_get_country(self, msg):
+        cache.set(f"{self.chat_id}:add-session-country", "admin-get-session-file")
+        return self._show_country(msg)
+
+    def admin_add_session_string_get_country(self, msg):
+        cache.set(f"{self.chat_id}:add-session-country", "admin-get-session-string")
+        return self._show_country(msg)
+
+    def admin_add_session_phone_get_country(self, msg):
+        cache.set(f"{self.chat_id}:add-session-country", "admin-get-session-phone")
+        return self._show_country(msg)
 
     def back_to_add_session(self, msg):
         if my_loop:
@@ -365,9 +377,9 @@ class AdminStepHandler(BaseHandler):
     def __init__(self, base):
         self.steps = {
             "admin-get-user-info": self.user_info,
-            "admin-add-session-string": self.add_session_string,
-            "admin-add-session-file": self.add_session_file,
-            "admin-get-phone-number": self.add_session_phone,
+            "admin-get-session-string": self.add_session_string,
+            "admin-get-session-file": self.add_session_file,
+            "admin-get-session-phone": self.add_session_phone,
             "admin-get-api-id-hash-session": self.get_api_id_and_hash_session,
             "admin-get-api-id-hash-login": self.get_api_id_and_hash_login,
             "admin-get-session-proxy-session": self.get_proxy_session,
@@ -650,9 +662,9 @@ class UserCallbackHandler(BaseCallbackHandler):
     def __init__(self, base) -> None:
         self.callback_handlers = {
             "country_": self.get_phone_number,
-            "show_countrys": self.show_countrys,
+            "show_countrys": self.back_to_show_countrys,
             "login_code": self.get_login_code,
-            "add_session_phone_code_": self.choice_country,
+            "add_session_phone_code_": self.admin_choice_country,
         }
         for key, value in vars(base).items():
             setattr(self, key, value)
@@ -663,8 +675,9 @@ class UserCallbackHandler(BaseCallbackHandler):
             cached_data[key] = value
         cache.set(f"{self.chat_id}:order", cached_data, timeout=None)
 
-    def choice_country(self):
-        msg = Message.objects.get(current_step="admin-get-phone-number")
+    def admin_choice_country(self):
+        step = cache.get(f"{self.chat_id}:add-session-country")
+        msg = Message.objects.get(current_step=step)
         self.bot.delete_message(self.chat_id, self.message_id)
         keys = self.generate_keyboards(msg)
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
