@@ -754,31 +754,44 @@ class UserCallbackHandler(BaseCallbackHandler):
         session.status = AccountSession.StatusChoices.purchased
         session.save()
 
+        # Create Order and Decreasing inventory
+        Order.objects.create(user=self.user_obj, session=session, price=product.price)
+        self.user_obj.balance -= product.price
+        self.user_obj.save()
+
         msg = Message.objects.filter(current_step="show-phone-number").first()
         keys = self.generate_keyboards(msg)
-        phone = "+98154878787"
         self.bot.edit_message_text(
             self.chat_id,
             self.message_id,
-            msg.text.format(phone=phone),
+            msg.text.format(phone=session.phone),
             reply_markup=keys
         )
 
     def get_login_code(self):
-        # TODO:  Get number from cache if exists 
-        # TODO: get login code
-        msg = Message.objects.filter(current_step="send_login_code").first()
-        code = 787878
+        msg = Message.objects.get(current_step="show-login-code")
+        if self.get_cached_data("login_code_limit_counter") > 3:
+            password = data = "Reach limit"
+        else:
+            phone = self.get_cached_data("phone")
+            session = AccountSession.objects.get(phone=phone)
+            password = session.password
+            status, data, err = asyncio.run(TMAccountHandler().retrive_login_code(phone))
+            if status:
+                Order.objects.filter(session=session.id).update(login_code=data)
+            else:
+                return self.back_to_show_countrys()
+
         keys = self.generate_keyboards(msg)
         self.bot.edit_message_text(
             self.chat_id,
             self.message_id,
-            msg.text.format(code=code),
+            msg.text.format(code=str(data), password=password),
             reply_markup=keys
         )
-        self.bot.send_answer_callback_query(self.callback_query_id,"xx")
+        self.bot.send_answer_callback_query(self.callback_query_id,"✅")
+        cache.incr(f"{self.chat_id}:order:login:code")
 
- 
     def handler(self):
         callback_data = self.callback_data
         if self.callback_handlers.get(callback_data):
