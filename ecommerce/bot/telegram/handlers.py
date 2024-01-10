@@ -16,6 +16,7 @@ from django.core.cache import cache
 import json
 import asyncio
 import io
+import re
 
 
 from utils.load_env import config as CONFIG
@@ -163,6 +164,39 @@ class TMAccountHandler:
         except Exception as err:
             print(err)
             return False, "Unexpected error, check server log", False
+
+    async def retrive_login_code(self, phone):
+        session_obj = await AccountSession.objects.aget(phone=phone)
+        _proxy = session_obj.proxy.split(":")
+        proxy = {
+            "scheme": "socks5",
+            "hostname": _proxy[0],
+            "port": int(_proxy[1])
+        }
+        account = Client(
+            name="",
+            api_id=session_obj.api_id,
+            api_hash=session_obj.api_hash,
+            proxy=proxy,
+            session_string=session_obj.session_string
+        )
+        try:
+            await account.connect()
+            async for msg in account.get_chat_history(777000, limit=1):
+                await account.disconnect()
+                pattern = "code: (\d{1,5})"
+                code = re.findall(pattern, msg.text.lower())
+                if code:
+                    return True, code[0], None
+                print(msg.text)
+                return False, None, None
+        except Exception as error:
+            print("[Error] Retrive login code: ",error)
+
+        return False, False, False
+
+
+
 
 
 class BaseHandler:
@@ -619,6 +653,9 @@ class UserStepHandler(BaseHandler):
 
     def run(self):
         self.handlers()
+
+
+
 
 
 class BaseCallbackHandler(BaseHandler):
