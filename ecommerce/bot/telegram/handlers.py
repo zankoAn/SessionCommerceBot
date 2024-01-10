@@ -713,6 +713,10 @@ class UserCallbackHandler(BaseCallbackHandler):
             cached_data[key] = value
         cache.set(f"{self.chat_id}:order", cached_data, timeout=None)
 
+    def get_cached_data(self, sub_key):
+        cached_data = cache.get(f"{self.chat_id}:order", {})[sub_key]
+        return cached_data
+
     def admin_choice_country(self):
         step = cache.get(f"{self.chat_id}:add-session-country")
         msg = Message.objects.get(current_step=step)
