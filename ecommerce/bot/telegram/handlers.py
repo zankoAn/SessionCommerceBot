@@ -2,6 +2,7 @@ from ecommerce.bot.models import Message
 from ecommerce.payment.models import Payment
 from ecommerce.bot.telegram.telegram import Telegram
 from ecommerce.product.models import Order, Product, AccountSession
+from django.db import transaction
 
 from datetime import timedelta
 from pyrogram import Client, errors
@@ -690,6 +691,7 @@ class UserCallbackHandler(BaseCallbackHandler):
         text, keys = TextHandler(self).buy_phone_number(msg)
         self.bot.edit_message_text(self.chat_id, self.message_id, text, reply_markup=keys)
 
+    @transaction.atomic
     def get_phone_number(self):
         _, cr_code = self.callback_data.split("_")
         product = Product.objects.get(country_code=cr_code)
