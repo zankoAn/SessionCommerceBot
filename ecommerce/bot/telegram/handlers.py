@@ -691,9 +691,27 @@ class UserCallbackHandler(BaseCallbackHandler):
         self.bot.edit_message_text(self.chat_id, self.message_id, text, reply_markup=keys)
 
     def get_phone_number(self):
-        # TODO: retrive random session.
-        # TODO: Cache the number and validated        
-        msg = Message.objects.filter(current_step="send_phone_number").first()
+        _, cr_code = self.callback_data.split("_")
+        product = Product.objects.get(country_code=cr_code)
+        session = AccountSession.objects.filter(
+            product=product,
+            status=AccountSession.StatusChoices.active
+        ).order_by("?").first()
+
+        # Check session to see is connect
+        status, _, _ = asyncio.run(TMAccountHandler(session_id=session.id).check_session_status())
+        if not status:
+            return self.back_to_show_countrys()
+
+        # Cache phone number and set rate limit
+        self.update_cached_data(phone=session.phone)
+        self.update_cached_data(login_code_limit_counter=1)
+
+        # User buy a number
+        session.status = AccountSession.StatusChoices.purchased
+        session.save()
+
+        msg = Message.objects.filter(current_step="show-phone-number").first()
         keys = self.generate_keyboards(msg)
         phone = "+98154878787"
         self.bot.edit_message_text(
