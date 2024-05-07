@@ -295,15 +295,15 @@ class TextHandler(BaseHandler):
         for key, value in vars(base).items():
             setattr(self, key, value)
 
-    def user_profile(self, text):
-        return text.format(
+    def user_profile(self, msg):
+        return msg.text.format(
             user_id=self.chat_id,
             total_order=self.user_obj.orders.count(),
             total_pay=self.user_obj.calculate_total_paid,
             balance=self.user_obj.balance
-        )
+        ), None
 
-    def admin_get_bot_info(self, text):
+    def admin_get_bot_info(self, msg):
         now = timezone.now()
         current_month_start = now.date() - timedelta(days=31)
         current_week_start = now.date() - timedelta(days=7)
@@ -342,14 +342,29 @@ class TextHandler(BaseHandler):
             ),
             total=Sum("amount")
         )
-        return text.format(
+        return msg.text.format(
             total_users_per_week=result_user["current_week"],
             total_users_per_month=result_user["current_month"],
             total_users=result_user["total"],
             total_payments_per_week=result_pay["current_week"],
             total_payments_per_month=result_pay["current_month"],
             total_payments=result_pay["total"],
-        )
+        ), None
+
+    def admin_statistics(self, msg):
+        return msg.text.format(
+            users=User.objects.count(),
+            buy_count=Payment.objects.filter(is_paid=True).count(),
+            sell_count=Order.objects.filter(status=Order.StatusChoices.down).count(),
+            disable_account=AccountSession.objects.filter(
+                Q(status=AccountSession.StatusChoices.disable) & 
+                Q(status=AccountSession.StatusChoices.purchased)
+            ).count(),
+            enable_account=AccountSession.objects.filter(
+                status=AccountSession.StatusChoices.active
+            ).count()
+        ), None
+
 
     def buy_phone_number(self, msg):
         products = Product.objects.filter(accounts__status=AccountSession.StatusChoices.active)
