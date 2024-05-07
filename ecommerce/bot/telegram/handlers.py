@@ -2,30 +2,29 @@ from ecommerce.bot.models import Message
 from ecommerce.payment.models import Payment
 from ecommerce.bot.telegram.telegram import Telegram
 from ecommerce.product.models import Order, Product, AccountSession
-from django.db import transaction
+# from django.db import transaction
 
 from datetime import timedelta
 from pyrogram import Client, errors
+#from pyrogram.types import Message
+
+ 
 
 from django.utils import timezone
 from django.db.models import Q, F, Sum
 from django.db.models import Count, Case, When, Value, IntegerField
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-
+from pyrogram import filters
 import json
 import asyncio
-import io
 import re
 
-
 from utils.load_env import config as CONFIG
-
 
 User = get_user_model()
 my_loop = None
 cache_account_sessions = {}
-
 
 
 class TMAccountHandler:
@@ -33,14 +32,28 @@ class TMAccountHandler:
     def __init__(self, session_id = 0) -> None:
         self.session_id = session_id
 
+    async def get_proxy(self, data):
+        proxy = {"scheme": "socks5"}
+        if len(data) > 3:
+            host, port, username, passwd = data
+            proxy.update({
+                "hostname": host,
+                "port": int(port),
+                "username": username,
+                "password": passwd
+            })
+        else:
+            host, port = data
+            proxy.update({
+                "hostname": host,
+                "port": int(port),
+            })
+        return proxy
+
     async def check_session_status(self):
         session_obj = await AccountSession.objects.aget(id=self.session_id)
         _proxy = session_obj.proxy.split(":")
-        proxy = {
-            "scheme": "socks5",
-            "hostname": _proxy[0],
-            "port": int(_proxy[1])
-        }
+        proxy = await self.get_proxy(_proxy)
         account = Client(
             name="",
             api_id=session_obj.api_id,
@@ -87,11 +100,7 @@ class TMAccountHandler:
     async def send_login_code(self):
         session_obj = await AccountSession.objects.aget(id=self.session_id)
         _proxy = session_obj.proxy.split(":")
-        proxy = {
-            "scheme": "socks5",
-            "hostname": _proxy[0],
-            "port": int(_proxy[1])
-        }
+        proxy = await self.get_proxy(_proxy)
         account = Client(
             name="",
             phone_number=session_obj.phone,
@@ -168,11 +177,7 @@ class TMAccountHandler:
     async def retrive_login_code(self, phone):
         session_obj = await AccountSession.objects.aget(phone=phone)
         _proxy = session_obj.proxy.split(":")
-        proxy = {
-            "scheme": "socks5",
-            "hostname": _proxy[0],
-            "port": int(_proxy[1])
-        }
+        proxy = await self.get_proxy(_proxy)
         account = Client(
             name="",
             api_id=session_obj.api_id,
@@ -194,8 +199,6 @@ class TMAccountHandler:
             print("[Error] Retrive login code: ",error)
 
         return False, False, False
-
-
 
 
 
