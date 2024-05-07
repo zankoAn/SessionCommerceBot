@@ -145,6 +145,46 @@ class Telegram:
         result = self.bot("answerCallbackQuery", data=data, method=method)
         return result
 
+    def forward_message(self, chat_id, from_chat_id, message_id: int, **kwargs):
+        """
+        This Method for forward message in telegram.
+            **kwargs :
+                disable_notification - > Bool
+                protect_content - > Bool
+        """
+        data = {
+            "chat_id": chat_id,
+            "from_chat_id": from_chat_id,
+            "message_id": message_id
+        }
+
+        data.update(**kwargs)
+        result = self.bot(telegram_method="forwardMessage", data=data)
+        return result
+
+    def copy_message(self, chat_id, from_chat_id, message_id: int, **kwargs):
+        """
+        This Method for Copy message in telegram.
+            **kwargs :
+                caption -> Str
+                parse_mode -> Str
+                caption_entities -> List
+                disable_notification -> Bool
+                protect_content -> Bool
+                reply_to_message_id -> Int
+                allow_sending_without_reply -> Bool
+                reply_markup -> List
+        """
+        data = {
+            "chat_id": chat_id,
+            "from_chat_id": from_chat_id,
+            "message_id": message_id
+        }
+
+        data.update(**kwargs)
+        result = self.bot(telegram_method="copyMessage", data=data)
+        return result
+
     def download_file(self, file_id: str):
         method = "GET"
         data = {"file_id": file_id}
