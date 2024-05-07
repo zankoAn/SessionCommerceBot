@@ -51,13 +51,16 @@ class AccountSession(models.Model):
         active = "فعال ✅"
         disable = "غیر فعال ❌"
         limit = "محدود ⚠️"
+        purchased = "فروخته شد 💸"
+        wait = "در انتظار ⏳"
         unknown = "نامشخص 🔘"
 
     product = models.ForeignKey(
         to=Product,
         on_delete=models.SET_NULL,
         null=True,
-        blank=True
+        blank=True,
+        related_name="accounts"
     )
     proxy = models.CharField(
         max_length=50,
@@ -106,7 +109,7 @@ class AccountSession(models.Model):
 
 class Order(models.Model):
 
-    class StatusChoices(models.Choices):
+    class StatusChoices(models.TextChoices):
         down = "انجام شد ✅"
         reject = "رد شد ❌"
         waiting = "در صف "
@@ -123,7 +126,9 @@ class Order(models.Model):
     )
     login_code = models.CharField(
         max_length=20,
-        verbose_name=_("login code")
+        verbose_name=_("login code"),
+        null=True,
+        blank=True,
     )
     price = models.IntegerField(
         default=0,
@@ -136,8 +141,8 @@ class Order(models.Model):
     )
     status = models.CharField(
         max_length=30,
-        choices=StatusChoices,
-        default="waiting"
+        choices=StatusChoices.choices,
+        default=StatusChoices.waiting
     )
     created = models.DateTimeField(
         auto_now_add=True,
