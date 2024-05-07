@@ -235,7 +235,6 @@ class BaseHandler:
             )
             self.user_qs = User.objects.filter(user_id=self.chat_id)
             self.user_obj = user
-            self.check_referral_user()
         else:
             self.user_obj = self.user_qs.first()
         self.step = self.user_obj.step
