@@ -837,28 +837,34 @@ class UserCallbackHandler(BaseCallbackHandler):
             self.user_obj.save()
 
     def get_login_code(self):
+        phone = self.get_cached_data("phone")
         msg = Message.objects.get(current_step="show-login-code")
-        if self.get_cached_data("login_code_limit_counter") > 3:
+        login_code_counter_key = f"{self.chat_id}:order:get:login:code:{phone}"
+
+        if not cache.get(login_code_counter_key):
+            cache.set(login_code_counter_key, 1)
+
+        if int(cache.get(login_code_counter_key)) > 3:
             password = data = "Reach limit"
+            msg = Message.objects.get(current_step="limit-login-code-error").text
+            return self.bot.send_message(self.chat_id, msg)
         else:
-            phone = self.get_cached_data("phone")
             session = AccountSession.objects.get(phone=phone)
             password = session.password
             status, data, err = asyncio.run(TMAccountHandler().retrive_login_code(phone))
             if status:
                 Order.objects.filter(session=session.id).update(login_code=data)
             else:
-                return self.back_to_show_countrys()
+                return self.bot.send_answer_callback_query(self.callback_query_id, "❌ کد یافت نشد ❌")
 
         keys = self.generate_keyboards(msg)
-        self.bot.edit_message_text(
+        self.bot.send_message(
             self.chat_id,
-            self.message_id,
             msg.text.format(code=str(data), password=password),
             reply_markup=keys
         )
         self.bot.send_answer_callback_query(self.callback_query_id,"✅")
-        cache.incr(f"{self.chat_id}:order:login:code")
+        cache.incr(login_code_counter_key)
 
     def handler(self):
         callback_data = self.callback_data
