@@ -393,6 +393,10 @@ class TextHandler(BaseHandler):
         key = self.generate_keyboards(msg)
         return msg.text, key
 
+    def get_amount(self, msg):
+        msg = Message.objects.get(current_step="no-payment")
+        return msg.text, None
+
     def admin_add_session_file_get_country(self, msg):
         cache.set(f"{self.chat_id}:add-session-country", "admin-get-session-file")
         return self._show_country(msg)
