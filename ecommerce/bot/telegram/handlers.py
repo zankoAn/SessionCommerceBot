@@ -787,32 +787,25 @@ class UserCallbackHandler(BaseCallbackHandler):
         text, keys = TextHandler(self).buy_phone_number(msg)
         self.bot.edit_message_text(self.chat_id, self.message_id, text, reply_markup=keys)
 
-    @transaction.atomic
     def get_phone_number(self):
         _, cr_code = self.callback_data.split("_")
         product = Product.objects.get(country_code=cr_code)
-        session = AccountSession.objects.filter(
-            product=product,
-            status=AccountSession.StatusChoices.active
-        ).order_by("?").first()
+
+        session = self.get_active_account_session(product)
+        if not session:
+            return self.send_no_phone_error()
 
         # Check session to see is connect
         status, _, _ = asyncio.run(TMAccountHandler(session_id=session.id).check_session_status())
         if not status:
             return self.back_to_show_countrys()
 
-        # Cache phone number and set rate limit
-        self.update_cached_data(phone=session.phone)
-        self.update_cached_data(login_code_limit_counter=1)
+        self.update_cached_data_and_set_rate_limit(session)
 
-        # User buy a number
         session.status = AccountSession.StatusChoices.purchased
         session.save()
 
-        # Create Order and Decreasing inventory
-        Order.objects.create(user=self.user_obj, session=session, price=product.price)
-        self.user_obj.balance -= product.price
-        self.user_obj.save()
+        self.create_order_and_decrease_inventory(session, product)
 
         msg = Message.objects.filter(current_step="show-phone-number").first()
         keys = self.generate_keyboards(msg)
