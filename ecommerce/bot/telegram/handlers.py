@@ -367,7 +367,16 @@ class TextHandler(BaseHandler):
 
 
     def buy_phone_number(self, msg):
+        product = Product.objects.order_by("price").first()
+        if self.user_obj.balance < product.price and cache.get(f"limit-buy:{self.chat_id}"):
+            msg = Message.objects.get(current_step="limit-buy-session-error").text
+            return msg, None
+
         products = Product.objects.filter(accounts__status=AccountSession.StatusChoices.active)
+        if not products:
+            msg = Message.objects.get(current_step="no-phone-error").text
+            return msg, None
+
         keys = ""
         for product in products:
             keys += f"\n{product.price:,} | {product.name}:country_{product.country_code}:"
