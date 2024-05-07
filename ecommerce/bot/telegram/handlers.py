@@ -612,10 +612,11 @@ class AdminStepHandler(BaseHandler):
         data = cache.get(f"{self.chat_id}:session")
         session_id = data["session_id"]
         phone_code_hash = data["phone_code_hash"]
-        login_code = self.text
+        login_code = self.text.strip()
         status, msg, action = my_loop.run_until_complete(
             TMAccountHandler(session_id).sign_in_account(account, phone_code_hash, login_code)
         )
+        print(status, msg, action)
         if status:
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
             self.user_qs.update(step="admin-add-session")
