@@ -652,6 +652,12 @@ class AdminStepHandler(BaseHandler):
 
         self.bot.send_message(self.chat_id, msg)
 
+    def respond_to_ticket(self):
+        user_id = self.reply_to_msg["text"].split("\n")[0].split(":")[1].strip()
+        self.bot.copy_message(user_id, self.chat_id, self.message_id)
+        msg = Message.objects.get(current_step="success-ticket")
+        self.bot.send_message(self.chat_id, msg.text)
+
     def handler(self):
         if callback := self.steps.get(self.user_obj.step):
             callback()
@@ -665,6 +671,7 @@ class UserStepHandler(BaseHandler):
     def __init__(self, base):
         self.steps = {
             "get-amount": self.make_payment,
+            "support-ticket-msg": self.ticket_msg
             
         }
         for key, value in vars(base).items():
@@ -677,6 +684,22 @@ class UserStepHandler(BaseHandler):
         reply_markup = self.generate_keyboards(msg)
         text = msg.text.format(user_id=self.chat_id, amount=int(self.text))
         self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
+
+    def ticket_msg(self):
+        admin = User.objects.filter(is_staff=True).last()
+        msg = Message.objects.get(current_step="success-ticket")
+        self.bot.forward_message(admin, self.chat_id, self.message_id)
+        self.bot.send_message(self.chat_id, msg.text)
+        # Send ticket info to admin(block/unblock)
+        msg = Message.objects.get(current_step="admin-ticket-info")
+        self.bot.send_message(
+            admin,
+            msg.text.format(
+                user_id=self.chat_id,
+                name=self.user_obj.first_name,
+                username=self.user_obj.username
+            )
+        )
 
     def handlers(self):
         if callback := self.steps.get(self.user_obj.step):
