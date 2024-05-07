@@ -816,6 +816,26 @@ class UserCallbackHandler(BaseCallbackHandler):
             reply_markup=keys
         )
 
+    def get_active_account_session(self, product):
+        return AccountSession.objects.filter(
+            product=product,
+            status=AccountSession.StatusChoices.active
+        ).order_by("?").first()
+
+    def send_no_phone_error(self):
+        msg = Message.objects.get(current_step="no-phone-error").text
+        return self.bot.send_message(self.chat_id, msg)
+
+    def update_cached_data_and_set_rate_limit(self, session):
+        self.update_cached_data(phone=session.phone)
+        cache.set(f"limit-buy:{self.chat_id}", "true", timeout=345600)
+
+    def create_order_and_decrease_inventory(self, session, product):
+        Order.objects.create(user=self.user_obj, session=session, price=product.price)
+        if self.user_obj.balance > product.price:
+            self.user_obj.balance -= product.price
+            self.user_obj.save()
+
     def get_login_code(self):
         msg = Message.objects.get(current_step="show-login-code")
         if self.get_cached_data("login_code_limit_counter") > 3:
