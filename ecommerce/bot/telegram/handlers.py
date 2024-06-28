@@ -467,11 +467,11 @@ class AdminStepHandler(BaseHandler):
         keys = self.generate_keyboards(msg)
         return msg, keys
 
-    def update_cached_data(self, **kwargs):
-        cached_data = cache.get(f"{self.chat_id}:session", {})
-        for key, value in kwargs.items():
-            cached_data[key] = value
-        cache.set(f"{self.chat_id}:session", cached_data, timeout=None)
+    def update_cached_data(self, key, **kwargs):
+        cached_data = cache.get(f"{self.chat_id}:{key}", {})
+        for key_, value in kwargs.items():
+            cached_data[key_] = value
+        cache.set(f"{self.chat_id}:{key}", cached_data)
 
     def user_info(self):
         # TODO: show the total orders
@@ -503,7 +503,7 @@ class AdminStepHandler(BaseHandler):
         session,_ = AccountSession.objects.get_or_create(session_string=self.text, product=product)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.update_cached_data(session_id=session.id)
+        self.update_cached_data(key="session", session_id=session.id)
         self.user_qs.update(step="admin-get-api-id-hash-session")
 
     def add_session_file(self):
@@ -530,7 +530,7 @@ class AdminStepHandler(BaseHandler):
             system_version=random_info["system_version"],
         )
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
-        self.update_cached_data(session_id=session.id)
+        self.update_cached_data(key="session", session_id=session.id)
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.user_qs.update(step="admin-get-api-id-hash-session")
 
@@ -555,7 +555,7 @@ class AdminStepHandler(BaseHandler):
         )
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.update_cached_data(session_id=session.id)
+        self.update_cached_data(key="session", session_id=session.id)
         self.user_qs.update(step="admin-get-api-id-hash-login")
 
     def _get_api_id_and_hash_base(self):
