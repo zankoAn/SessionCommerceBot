@@ -613,7 +613,7 @@ class AdminStepHandler(BaseHandler):
         # Validate api_id
         try:
             int(api_id)
-        except:
+        except Exception:
             return self.bot.send_message(self.chat_id, error_msg)
 
         AccountSession.objects.filter(id=session_id).update(api_id=api_id, api_hash=api_hash)
@@ -656,13 +656,18 @@ class AdminStepHandler(BaseHandler):
     def get_proxy_login(self):
         global my_loop
         session_id = self._get_proxy_base()
-        self.bot.send_message(self.chat_id, "⏳")
+        wait_msg = self.bot.send_message(self.chat_id, "⏳")
         # Create new event loop
         my_loop = asyncio.new_event_loop()
-        account, result = my_loop.run_until_complete(TMAccountHandler(session_id).send_login_code())
+        status, account, result = my_loop.run_until_complete(TMAccountHandler(session_id).send_login_code())
+        if not status:
+            self.bot.delete_message(self.chat_id, wait_msg["result"]["message_id"])
+            msg = Message.objects.filter(current_step="invalid-phone-error").first()
+            return self.bot.send_message(self.chat_id, msg.text)
+
         # Cache the client object
         cache_account_sessions[self.chat_id] = account
-        self.update_cached_data(phone_code_hash=result.phone_code_hash)        
+        self.update_cached_data(key="session", phone_code_hash=result.phone_code_hash, login_code_type=result.type)
         msg, keys = self.retrive_msg_and_keys("admin-get-login-code")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.user_qs.update(step=msg.current_step)
