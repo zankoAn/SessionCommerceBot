@@ -2,12 +2,11 @@ from ecommerce.bot.models import Message
 from ecommerce.payment.models import Payment
 from ecommerce.bot.telegram.telegram import Telegram
 from ecommerce.product.models import Order, Product, AccountSession
-# from django.db import transaction
 
 from datetime import timedelta
 from pyrogram import Client, errors
-#from pyrogram.types import Message
-
+from pyrogram.enums import SentCodeType
+from pyrogram.types import TermsOfService
  
 
 from django.utils import timezone
@@ -163,6 +162,38 @@ class TMAccountHandler:
             return False, "Unexpected error, check server log", False
 
         return False, "Unexpected error, check server log", False
+
+    async def sign_up_account(self, account: Client, phone_code_hash):
+        session_obj = await AccountSession.objects.aget(id=self.session_id)
+        try:
+            signed_up = await account.sign_up(
+                phone_number=session_obj.phone,
+                phone_code_hash=phone_code_hash,
+                first_name=random.choice(fake_names)
+            )
+            if isinstance(signed_up, TermsOfService):
+                is_accepted = await account.accept_terms_of_service(signed_up.id)
+                if is_accepted:
+                    # TODO: Enable cloud password
+                    ...
+
+                session_string = await account.export_session_string()
+                session_obj.session_string = session_string
+                session_obj.status = AccountSession.StatusChoices.active
+                await session_obj.asave()
+                return True, None, None
+        except errors.PhoneCodeInvalid:
+            return False, "Login code invalid", errors.PhoneCodeInvalid
+
+        except errors.PhoneCodeExpired:
+            return False, "Login code expired", errors.PhoneCodeExpired
+
+        except errors.FloodWait:
+            return False, "FoolWait tray later", errors.FloodWait
+
+        except Exception as err:
+            print(err)
+            return False, "Unexpected error, check server log", False
 
     async def confirm_password(self, account: Client, password):
         try:
@@ -458,6 +489,7 @@ class AdminStepHandler(BaseHandler):
             "admin-get-session-proxy-login": self.get_proxy_login,
             "admin-get-login-code": self.get_login_code,
             "admin-get-login-password": self.get_login_password,
+            "admin-accept-signup-signin": self.accept_signup_or_signin,
         }
         for key, value in vars(base).items():
             setattr(self, key, value)
@@ -664,22 +696,31 @@ class AdminStepHandler(BaseHandler):
 
         self.bot.send_message(self.chat_id, msg)
 
-    def get_login_password(self):
+    def accept_signup_or_signin(self):
         account = cache_account_sessions[self.chat_id]
         data = cache.get(f"{self.chat_id}:session")
+        phone_code_hash = data["phone_code_hash"]
+        login_code_type = data["login_code_type"]
+        login_code = data["login_code"]
         session_id = data["session_id"]
-        password = self.text
-        status, msg, action = my_loop.run_until_complete(
-            TMAccountHandler(session_id).confirm_password(account, password)
-        )
+
+        if login_code_type == SentCodeType.SMS:
+            status, msg, action = my_loop.run_until_complete(
+                TMAccountHandler(session_id).sign_up_account(account, phone_code_hash)
+            )
+        else:
+            status, msg, action = my_loop.run_until_complete(
+                TMAccountHandler(session_id).sign_in_account(account, phone_code_hash, login_code)
+            )
         if status:
-            my_loop.close()
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
+            self.user_qs.update(step="admin-add-session")
             self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
             return
 
-        if action == errors.PasswordHashInvalid:
+        if action == errors.SessionPasswordNeeded:
             msg_obj, keys = self.retrive_msg_and_keys("admin-get-login-password")
+            self.user_qs.update(step=msg_obj.current_step)
             self.bot.send_message(self.chat_id, msg_obj.text.format(hint=msg))
             return
 
