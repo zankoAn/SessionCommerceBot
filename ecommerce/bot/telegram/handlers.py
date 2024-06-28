@@ -500,7 +500,14 @@ class AdminStepHandler(BaseHandler):
 
         phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
         product = Product.objects.get(phone_code=phone_code)
-        session,_ = AccountSession.objects.get_or_create(session_string=self.text, product=product)
+        random_info = random.choice(fake_info_list)
+        session,_ = AccountSession.objects.get_or_create(
+            session_string=self.text,
+            product=product,
+            app_version=random_info["app_version"],
+            device_model=random_info["device_model"],
+            system_version=random_info["system_version"],
+        )
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.update_cached_data(key="session", session_id=session.id)
