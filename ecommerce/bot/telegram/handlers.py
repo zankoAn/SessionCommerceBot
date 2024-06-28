@@ -15,12 +15,16 @@ from django.db.models import Q, F, Sum
 from django.db.models import Count, Case, When, Value, IntegerField
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from pyrogram import filters
 import json
 import asyncio
 import re
+import random
 
 from utils.load_env import config as CONFIG
+from fixtures.app_info import fake_info_list
+from fixtures.names import fake_names
+
+
 
 User = get_user_model()
 my_loop = None
@@ -106,8 +110,12 @@ class TMAccountHandler:
             phone_number=session_obj.phone,
             api_id=session_obj.api_id,
             api_hash=session_obj.api_hash,
+            app_version=session_obj.app_version,
+            device_model=session_obj.device_model,
+            system_version=session_obj.system_version,
             proxy=proxy,
             in_memory=True,
+            no_updates=True,
         )
         try:
             await account.connect()
@@ -514,7 +522,14 @@ class AdminStepHandler(BaseHandler):
 
         phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
         product = Product.objects.get(phone_code=phone_code)
-        session, _ = AccountSession.objects.get_or_create(session_string=session_string, product=product)
+        random_info = random.choice(fake_info_list)
+        session, _ = AccountSession.objects.get_or_create(
+            session_string=session_string,
+            product=product,
+            app_version=random_info["app_version"],
+            device_model=random_info["device_model"],
+            system_version=random_info["system_version"],
+        )
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.update_cached_data(session_id=session.id)
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
@@ -531,7 +546,14 @@ class AdminStepHandler(BaseHandler):
         if user_phone[:1] != phone_code[:1]:
             return self.bot.send_message(self.chat_id, error_msg)
 
-        session, _ = AccountSession.objects.get_or_create(phone=user_phone, product=product)
+        random_info = random.choice(fake_info_list)
+        session, _ = AccountSession.objects.get_or_create(
+            phone=user_phone,
+            product=product,
+            app_version=random_info["app_version"],
+            device_model=random_info["device_model"],
+            system_version=random_info["system_version"],
+        )
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.update_cached_data(session_id=session.id)
