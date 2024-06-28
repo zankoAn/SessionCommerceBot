@@ -197,11 +197,10 @@ class TMAccountHandler:
             await account.connect()
             async for msg in account.get_chat_history(777000, limit=1):
                 await account.disconnect()
-                pattern = "code: (\d{1,5})"
+                pattern = "(\d{1,5})"
                 code = re.findall(pattern, msg.text.lower())
                 if code:
                     return True, code[0], None
-                print(msg.text)
                 return False, None, None
         except Exception as error:
             print("[Error] Retrive login code: ",error)
