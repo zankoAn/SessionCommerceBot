@@ -120,11 +120,13 @@ class TMAccountHandler:
         try:
             await account.connect()
             result = await account.send_code(session_obj.phone)
-            print(result)
-            return account, result
+            return True, account, result
+
+        except errors.PhoneNumberInvalid:
+            return False, "Phone number invalid", errors.PhoneNumberInvalid
+
         except Exception as error:
-            print("[Error] Send login code: ",error)
-            return False
+            return False, "Unexpected error, check server log", False
 
     async def sign_in_account(self, account: Client, phone_code_hash, login_code):
         session_obj = await AccountSession.objects.aget(id=self.session_id)
@@ -134,7 +136,6 @@ class TMAccountHandler:
                 phone_code_hash=phone_code_hash,
                 phone_code=login_code
             )
-            print(user)
             if user.id:
                 session_string = await account.export_session_string()
                 session_obj.session_string = session_string
