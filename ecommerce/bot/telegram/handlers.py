@@ -636,24 +636,29 @@ class AdminStepHandler(BaseHandler):
         self.user_qs.update(step=msg.current_step)
 
     def get_login_code(self):
+        login_code = self.text.strip()
+        msg_obj, keys = self.retrive_msg_and_keys("admin-accept-signup-signin")
+        self.bot.send_message(self.chat_id, msg_obj.text, reply_markup=keys)
+        self.update_cached_data(key="session", login_code=login_code)
+        self.user_qs.update(step=msg_obj.current_step)
+
+    def get_login_password(self):
         account = cache_account_sessions[self.chat_id]
         data = cache.get(f"{self.chat_id}:session")
         session_id = data["session_id"]
-        phone_code_hash = data["phone_code_hash"]
-        login_code = self.text.strip()
+        password = self.text
         status, msg, action = my_loop.run_until_complete(
-            TMAccountHandler(session_id).sign_in_account(account, phone_code_hash, login_code)
+            TMAccountHandler(session_id).confirm_password(account, password)
         )
-        print(status, msg, action)
         if status:
+            my_loop.close()
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
-            self.user_qs.update(step="admin-add-session")
             self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+            cache_account_sessions.pop(self.chat_id)
             return
 
-        if action == errors.SessionPasswordNeeded:
+        if action == errors.PasswordHashInvalid:
             msg_obj, keys = self.retrive_msg_and_keys("admin-get-login-password")
-            self.user_qs.update(step=msg_obj.current_step)
             self.bot.send_message(self.chat_id, msg_obj.text.format(hint=msg))
             return
 
