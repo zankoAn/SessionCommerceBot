@@ -373,10 +373,9 @@ class TextHandler(BaseHandler):
             ).count()
         ), None
 
-
     def buy_phone_number(self, msg):
         product = Product.objects.order_by("price").first()
-        if self.user_obj.balance < product.price and cache.get(f"limit-buy:{self.chat_id}"):
+        if not self.user_obj.is_staff and self.user_obj.balance < product.price and cache.get(f"limit-buy:{self.chat_id}"):
             msg = Message.objects.get(current_step="limit-buy-session-error").text
             return msg, None
 
