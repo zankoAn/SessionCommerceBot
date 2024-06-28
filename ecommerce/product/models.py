@@ -82,6 +82,24 @@ class AccountSession(models.Model):
         verbose_name=_("phone number"),
         blank=True,
     )
+    app_version = models.CharField(
+        max_length=30,
+        verbose_name=_("App Version"),
+        blank=True,
+        null=True,
+    )
+    device_model = models.CharField(
+        max_length=30,
+        verbose_name=_("Device Model"),
+        blank=True,
+        null=True,
+    )
+    system_version = models.CharField(
+        max_length=30,
+        verbose_name=_("System Version"),
+        blank=True,
+        null=True,
+    )
     password = models.CharField(
         max_length=64,
         verbose_name=_("account password"),
