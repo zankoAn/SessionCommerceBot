@@ -1,15 +1,14 @@
-
-from django.db import models
-from ecommerce.bot.models import Message
-from django.utils.translation import gettext_lazy as _
-from django.contrib.auth import get_user_model
 from uuid import uuid4
+
+from django.contrib.auth import get_user_model
+from django.db import models
+from django.utils.translation import gettext_lazy as _
 
 User = get_user_model()
 
 
 def generate_short_uuid():
-    return str(uuid4()).split('-')[-1]
+    return str(uuid4()).split("-")[-1]
 
 
 class Product(models.Model):
@@ -21,13 +20,13 @@ class Product(models.Model):
         max_length=50,
         verbose_name=_("country code"),
         help_text=_("us, ir, uk and etc.."),
-        default=""
+        default="",
     )
     phone_code = models.CharField(
         max_length=50,
         verbose_name=_("phone code"),
         help_text=_("+98, +1, +964, +234 and etc.."),
-        default=""
+        default="",
     )
     price = models.PositiveIntegerField(
         default=0,
@@ -60,7 +59,7 @@ class AccountSession(models.Model):
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="accounts"
+        related_name="accounts",
     )
     proxy = models.CharField(
         max_length=50,
@@ -106,15 +105,15 @@ class AccountSession(models.Model):
         default="",
         blank=True,
     )
-    session_string = models.CharField(
-        max_length=400,
-        verbose_name=_("session string")
-    )
     status = models.CharField(
         max_length=50,
         verbose_name=_("session status"),
         choices=StatusChoices.choices,
-        default=StatusChoices.unknown
+        default=StatusChoices.unknown,
+    )
+    session_string = models.CharField(
+        max_length=400,
+        verbose_name=_("session string")
     )
     created = models.DateTimeField(
         auto_now_add=True,
@@ -126,7 +125,6 @@ class AccountSession(models.Model):
 
 
 class Order(models.Model):
-
     class StatusChoices(models.TextChoices):
         down = "انجام شد ✅"
         reject = "رد شد ❌"
