@@ -1,11 +1,13 @@
-from django.contrib.auth import get_user_model
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
-from ecommerce.bot.telegram.telegram import Telegram
-from ecommerce.bot.telegram.handlers import BaseHandler, BaseCallbackHandler
-
-User = get_user_model()
+from ecommerce.telegram.handlers.base_handler import BaseCallbackHandler, BaseHandler
+from ecommerce.telegram.deserializers import (
+    TextUpdateDeserializer,
+    CallbackUpdateDeSerializer,
+)
+from ecommerce.telegram.telegram import Telegram
+import traceback
 
 
 @api_view(("GET", "POST"))
@@ -24,17 +26,26 @@ def webhook(request):
 
         # Return the simple HttpResponse to handel the non returned exception
         return Response("ok")
-    except Exception as e:
-       print(e)
-       return Response("error")
+    except Exception:
+        msg = traceback.format_exc().strip()
+        formated_msg = (
+            f"\n{'-'*30}\n{' '*7}Your Exception:{' '*7}| \n{'-'*100}\n{msg}\n{'-'*100}"
+        )
+        print(formated_msg)
+        return Response("error")
 
 
 def callback_handler(update):
     bot = Telegram()
-    callback_handler = BaseCallbackHandler(bot, update)
+    deserializer = CallbackUpdateDeSerializer(update)
+    deserializer.deserialize()
+    callback_handler = BaseCallbackHandler(bot, deserializer)
     callback_handler.run()
+
 
 def text_handler(update):
     bot = Telegram()
-    base_handler = BaseHandler(bot, update)
+    deserializer = TextUpdateDeserializer(update)
+    deserializer.deserialize()
+    base_handler = BaseHandler(bot, deserializer)
     base_handler.run()

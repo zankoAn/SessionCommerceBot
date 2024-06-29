@@ -1,6 +1,8 @@
 import json
 from typing import List, Optional, Union
+
 import requests
+
 from utils.load_env import config
 
 
@@ -208,11 +210,67 @@ class Telegram:
         except Exception as error:
             print("Error in Telegram Class: ", error)
 
-    def delete_message(self, chat_id, message_id: int):
+    def get_chat_member(self, chat_id, user_id, **kwargs):
+        data = {
+            "chat_id": chat_id if "@" in chat_id else f"@{chat_id}",
+            "user_id": user_id,
+        }
+        data.update(**kwargs)
+        result = self.bot(telegram_method="getChatMember", data=data)
+        if result["ok"]:
+            return result["result"]
+
+    def send_document(self, chat_id, document, **kwargs):
         """
-        This Method for delete_Message in telegram.
+        This Method for send_Document in telegram.
+            **kwargs :
+                caption -> Str ,
+                parse_mode -> Str ,
+                caption_entities -> List ,
+                disable_content_type_detection -> Bool ,
+                disable_notification -> Bool ,
+                protect_content -> Bool ,
+                reply_to_message_id -> Int ,
+                allow_sending_without_reply -> Bool ,
+                reply_markup -> List ,
+        """
+        method = "POST"
+        data = {"chat_id": str(chat_id)}
+        file_doc = {"document": open(document, "rb")}
+
+        data.update(**kwargs)
+        result = self.bot("sendDocument", data=data, method=method, input_file=file_doc)
+        return result
+
+    def send_answer_callback_query(self, callback_query_id, text: str, **kwargs):
+        """
+        This Method for send_AnswerCallbackQuery in telegram.
+            **kwargs :
+                show_alert -> Bool ,
+                url -> text ,
+                cache_time -> Int ,
         """
         method = "GET"
+
+        data = {"callback_query_id": str(callback_query_id), "text": text}
+        data.update(**kwargs)
+        result = self.bot("answerCallbackQuery", data=data, method=method)
+        return result
+
+    def delete_message(self, chat_id, message_id: int):
+        """This Method for delete_Message in telegram."""
+        method = "GET"
         data = {"chat_id": str(chat_id), "message_id": message_id}
+
         result = self.bot("deleteMessage", data=data, method=method)
         return result
+
+    def remove_inline_keyboard(self, chat_id, message_id, keyboard):
+        """Remove or edit the inline keyboard from msg"""
+        reply_markup = json.dumps({"inline_keyboard": [keyboard]})
+        data = {
+            "chat_id": chat_id,
+            "message_id": message_id,
+            "reply_markup": reply_markup,
+        }
+        self.bot("editMessageReplyMarkup", data=data, method="post")

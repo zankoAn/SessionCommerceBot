@@ -1,0 +1,289 @@
+import asyncio
+
+from django.contrib.auth import get_user_model
+from django.core.cache import cache
+
+from ecommerce.bot.models import Message
+from ecommerce.telegram.account_manager import TMAccountManager
+from ecommerce.product.models import AccountSession, Order, Product
+
+from ecommerce.telegram.validators import Validator
+
+User = get_user_model()
+
+
+class UserTextHandler:
+    """Handel the normal user keyboard text,
+    When normal user press the any KeyboardMarkup, handeld in this class,
+    methods-name are definded base on the keyboard-name in Message model.
+    """
+
+    validators = Validator()
+
+    def __init__(self, base_handler):
+        self.base_handler = base_handler
+
+    def __getattr__(self, name):
+        attribute = getattr(self.base_handler, name, None)
+        if attribute is not None:
+            return attribute
+
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
+
+    def user_profile(self, msg_obj):
+        return msg_obj.text.format(
+            user_id=self.chat_id,
+            total_order=self.user_obj.orders.count(),
+            total_pay=self.user_obj.calculate_total_paid,
+            balance=self.user_obj.balance,
+        )
+
+    @validators.validate_user_balance
+    @validators.validate_exists_product
+    def buy_phone_number(self, msg_obj):
+        products = Product.objects.filter(
+            accounts__status=AccountSession.StatusChoices.active
+        )
+        keys = ""
+        for product in products:
+            keys += (
+                f"\n{product.price:,} | {product.name}:country_{product.country_code}:"
+            )
+        msg_obj.keys = keys.strip()
+        return msg_obj
+
+    def select_payment_method(self, ـ):
+        msg = Message.objects.get(current_step="select_payment_method")
+        self.user_qs.update(step="select_amount")
+        return msg.text
+
+    def handler(self):
+        if "/start" in self.text:
+            self.text = "/start"
+
+        messages = Message.objects.filter(key=self.text).exclude(
+            current_step__startswith="admin"
+        )
+        if not messages:
+            return
+
+        self.user_qs.update(step=messages.last().current_step)
+        # Itrate over all related step msg.
+        for msg in messages:
+            reply_markup = None
+            text = msg.text
+            if msg.keys:
+                reply_markup = self.generate_keyboards(msg)
+
+            if update_text_method := getattr(self, msg.current_step, None):
+                text = update_text_method(msg)
+                if isinstance(text, Message):
+                    reply_markup = self.generate_keyboards(text)
+                    text = text.text
+
+            self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
+
+    def run(self):
+        self.handler()
+
+
+class UserInputHandler:
+    """Get the user input base on the step"""
+
+    def __init__(self, base_handler=None):
+        self.base_handler = base_handler
+        self.steps = {
+            "get-amount": self.make_payment,
+            "support-ticket-msg": self.ticket_msg,
+        }
+
+    def __getattr__(self, name):
+        attribute = getattr(self.base_handler, name, None)
+        if attribute is not None:
+            return attribute
+
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
+    
+    def make_payment(self):
+        msg = Message.objects.filter(current_step="payment").first()
+        url = f"google.com?pay={self.text}&user_id={self.chat_id}"
+        msg.keys = msg.keys.format(url=url, callback="")
+        reply_markup = self.generate_keyboards(msg)
+        text = msg.text.format(user_id=self.chat_id, amount=int(self.text))
+        self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
+
+    def ticket_msg(self):
+        admin = User.objects.filter(is_staff=True).last()
+        msg = Message.objects.get(current_step="success-ticket")
+        self.bot.forward_message(admin, self.chat_id, self.message_id)
+        self.bot.send_message(self.chat_id, msg.text)
+        # Send ticket info to admin(block/unblock)
+        msg = Message.objects.get(current_step="admin-ticket-info")
+        self.bot.send_message(
+            admin,
+            msg.text.format(
+                user_id=self.chat_id,
+                name=self.user_obj.first_name,
+                username=self.user_obj.username,
+            ),
+        )
+
+    def handlers(self):
+        if callback := self.steps.get(self.user_obj.step):
+            callback()
+
+    def run(self):
+        self.handlers()
+
+
+class UserCallbackHandler(UserTextHandler):
+    validators = Validator()
+
+    def __init__(self, base_handler=None) -> None:
+        self.base_handler = base_handler
+        self.callback_handlers = {
+            "country_": self.get_phone_number,
+            "back_to_show_countrys": self.back_to_show_countrys,
+            "login_code": self.get_login_code,
+            "add_session_phone_code_": self.admin_choice_country,
+        }
+
+    def __getattr__(self, name):
+        attribute = getattr(self.base_handler, name, None)
+        if attribute is not None:
+            return attribute
+
+        raise AttributeError(
+            f"'{self.__class__.__name__}' object has no attribute '{name}'"
+        )
+
+    def update_cached_data(self, **kwargs):
+        cached_data = cache.get(f"{self.chat_id}:order", {})
+        for key, value in kwargs.items():
+            cached_data[key] = value
+
+        cache.set(f"{self.chat_id}:order", cached_data, timeout=None)
+
+    def get_cached_data(self, sub_key):
+        cached_data = cache.get(f"{self.chat_id}:order", {}).get(sub_key, 0)
+        return cached_data
+
+    def admin_choice_country(self):
+        step = cache.get(f"{self.chat_id}:add-session-country")
+        msg = Message.objects.get(current_step=step)
+        self.bot.delete_message(self.chat_id, self.message_id)
+        keys = self.generate_keyboards(msg)
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+        phone_code = self.callback_data.replace("add_session_phone_code_", "")
+        cache.set(f"{self.chat_id}:add-session-phone-code", phone_code)
+        self.user_qs.update(step=msg.current_step)
+
+    @validators.validate_exists_product
+    def back_to_show_countrys(self):
+        msg = Message.objects.get(current_step="buy_phone_number")
+        # msg_obj = UserTextHandler(self).buy_phone_number(msg)
+        text = self.buy_phone_number(msg)  # TODO: why previse we create instance?
+        reply_markup = self.generate_keyboards(text)
+        self.bot.edit_message_text(
+            self.chat_id, self.message_id, text.text, reply_markup=reply_markup
+        )
+
+    def get_phone_number(self):
+        _, cr_code = self.callback_data.split("_")
+        product = Product.objects.get(country_code=cr_code)
+
+        session = self.get_active_account_session(product)
+        if not session:
+            return self.send_no_phone_error()
+
+        # Check session to see is connect
+        status, _, __ = asyncio.run(
+            TMAccountManager(session_id=session.id).check_session_status()
+        )
+        if not status:
+            return self.back_to_show_countrys()
+
+        session.status = AccountSession.StatusChoices.purchased
+        session.save()
+
+        self.create_order_and_decrease_inventory(session, product)
+
+        msg = Message.objects.filter(current_step="show-phone-number").first()
+        keys = self.generate_keyboards(msg)
+        self.bot.edit_message_text(
+            self.chat_id,
+            self.message_id,
+            msg.text.format(phone=session.phone),
+            reply_markup=keys,
+        )
+
+    def get_active_account_session(self, product):
+        return (
+            AccountSession.objects.filter(
+                product=product, status=AccountSession.StatusChoices.active
+            )
+            .order_by("?")
+            .first()
+        )
+
+    def send_no_phone_error(self):
+        msg = Message.objects.get(current_step="no-phone-error").text
+        return self.bot.send_message(self.chat_id, msg)
+
+    def create_order_and_decrease_inventory(self, session, product):
+        Order.objects.create(user=self.user_obj, session=session, price=product.price)
+        if self.user_obj.balance > product.price:
+            self.user_obj.balance -= product.price
+            self.user_obj.save()
+
+    def get_login_code(self):
+        phone = self.get_cached_data("phone")
+        msg = Message.objects.get(current_step="show-login-code")
+        login_code_counter_key = f"{self.chat_id}:order:get:login:code:{phone}"
+
+        if not cache.get(login_code_counter_key):
+            cache.set(login_code_counter_key, 1)
+
+        if int(cache.get(login_code_counter_key)) > 3:
+            password = data = "Reach limit"
+            msg = Message.objects.get(current_step="limit-login-code-error").text
+            self.bot.send_answer_callback_query(self.callback_query_id, "❌ ")
+            return self.bot.send_message(self.chat_id, msg)
+        else:
+            session = AccountSession.objects.get(phone=phone)
+            password = session.password
+            status, data, err = asyncio.run(
+                TMAccountManager().retrive_login_code(phone)
+            )
+            if status:
+                Order.objects.filter(session=session.id).update(login_code=data)
+            else:
+                return self.bot.send_answer_callback_query(
+                    self.callback_query_id, "❌ کد یافت نشد ❌"
+                )
+
+        keys = self.generate_keyboards(msg)
+        self.bot.send_message(
+            self.chat_id,
+            msg.text.format(code=str(data), password=password),
+            reply_markup=keys,
+        )
+        self.bot.send_answer_callback_query(self.callback_query_id, "✅")
+        cache.incr(login_code_counter_key)
+
+    def handler(self):
+        callback_data = self.callback_data
+        if self.callback_handlers.get(callback_data):
+            self.callback_handlers[callback_data]()
+            return
+
+        for key in self.callback_handlers.keys():
+            if callback_data.startswith(key):
+                self.callback_handlers.get(key)()
+
+    def run(self):
+        self.handler()
