@@ -6,6 +6,21 @@ from django.contrib.auth import get_user_model
 User = get_user_model()
 
 
+class BotUpdateStatus(models.Model):
+    is_update = models.BooleanField(
+        default=False,
+        verbose_name=_("update status")
+    )
+    update_msg = models.TextField(default="")
+
+    def save(self, *args, **kwargs):
+        self.id = 1
+        return super().save(*args, **kwargs)
+
+    def __str__(self):
+        return str(_(f"Bot status is: {self.is_update}"))
+
+
 class Message(models.Model):
     text = models.TextField(default="")
     current_step = models.CharField(
