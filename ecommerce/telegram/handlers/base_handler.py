@@ -138,9 +138,9 @@ class BaseHandler:
                 return AdminStepHandler(self).respond_to_ticket()
 
             elif self.user_obj.step.startswith("admin"):
-                return AdminStepHandler(self).run()
-        else:
-            return UserInputHandler(self).run()
+                AdminStepHandler(self).run()
+
+        return UserInputHandler(self).run()
 
     def run(self):
         self.add_new_user()
