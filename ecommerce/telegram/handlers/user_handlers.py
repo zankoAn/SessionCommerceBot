@@ -96,7 +96,7 @@ class UserInputHandler:
         self.base_handler = base_handler
         self.steps = {
             "get-amount": self.make_payment,
-            "support-ticket-msg": self.ticket_msg,
+            "select_amount": self.make_payment,
         }
 
     def __getattr__(self, name):
@@ -116,23 +116,42 @@ class UserInputHandler:
         text = msg.text.format(user_id=self.chat_id, amount=int(self.text))
         self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
+
+    def add_dynamic_admin_user_ticket_step(self):
+        admin_user_ids = User.objects.filter(is_staff=True).values_list(
+            "user_id", flat=True
+        )
+        admin_user_steps = {
+            f"ticket-admin-{user_id}": self.ticket_msg for user_id in admin_user_ids
+        }
+        self.steps.update(admin_user_steps)
+
     def ticket_msg(self):
-        admin = User.objects.filter(is_staff=True).last()
-        msg = Message.objects.get(current_step="success-ticket")
-        self.bot.forward_message(admin, self.chat_id, self.message_id)
+        # Get admin-id from step
+        user_id = int(self.user_obj.step.split("-")[-1])
+        admin_user = User.objects.get(is_staff=True, user_id=user_id)
+        # Get and forward success msg
+        msg = Message.objects.get(current_step="send-success-ticket-msg")
+        resp = self.bot.forward_message(
+            admin_user.user_id, self.chat_id, self.message_id
+        )
         self.bot.send_message(self.chat_id, msg.text)
         # Send ticket info to admin(block/unblock)
         msg = Message.objects.get(current_step="admin-ticket-info")
+        keys = self.generate_keyboards(msg)
         self.bot.send_message(
-            admin,
+            admin_user,
             msg.text.format(
                 user_id=self.chat_id,
                 name=self.user_obj.first_name,
                 username=self.user_obj.username,
             ),
+            reply_to_message_id=resp["result"]["message_id"],
+            reply_markup=keys,
         )
 
     def handlers(self):
+        self.add_dynamic_admin_user_ticket_step()
         if callback := self.steps.get(self.user_obj.step):
             callback()
 

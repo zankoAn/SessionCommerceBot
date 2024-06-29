@@ -1,5 +1,6 @@
 import asyncio
 import random
+import re
 from datetime import timedelta
 
 from django.contrib.auth import get_user_model
@@ -474,8 +475,9 @@ class AdminStepHandler:
     def respond_to_ticket(self):
         user_id = self.reply_to_msg["text"].split("\n")[0].split(":")[1].strip()
         self.bot.copy_message(user_id, self.chat_id, self.message_id)
-        msg = Message.objects.get(current_step="success-ticket")
+        msg = Message.objects.get(current_step="admin-respond-success-ticket")
         self.bot.send_message(self.chat_id, msg.text)
+
 
     def handler(self):
         if callback := self.steps.get(self.user_obj.step):
@@ -503,6 +505,11 @@ class AdminCallbackHandler:
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{name}'"
         )
+
+    def _get_ticket_user_id(self):
+        pattern = "user.+(\d+)\n"
+        user_id = re.findall(pattern, self.text.lower())
+        return user_id[0]
 
     def block_user_ticket(self):
         user = self._get_ticket_user_id()
