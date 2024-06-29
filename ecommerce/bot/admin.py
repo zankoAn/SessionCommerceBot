@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.utils.translation import gettext_lazy as _
 
-from .models import *
+from ecommerce.bot.models import Message, BotUpdateStatus
 
 
 class MsgStepFilter(admin.SimpleListFilter):
@@ -9,10 +9,7 @@ class MsgStepFilter(admin.SimpleListFilter):
     parameter_name = "step"
 
     def lookups(self, request, model_admin):
-        return (
-            ("user", _("Related User Msg")),
-            ("admin", _("Related Admin Msg"))
-        )
+        return (("user", _("Related User Msg")), ("admin", _("Related Admin Msg")))
 
     def queryset(self, request, queryset):
         if self.value() == "user":
@@ -46,12 +43,19 @@ class MsgKeyFilter(admin.SimpleListFilter):
             return queryset.all()
 
 
+
+@admin.register(BotUpdateStatus)
+class BotUpdateAdmin(admin.ModelAdmin):
+    list_display = ("id", "is_update")
+    list_display_links = ("id",)
+
+
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
     list_display = ("id", "display_key", "current_step")
     list_display_links = ("id", "display_key")
     search_fields = ("id", "display_key")
-    list_editable = ("current_step", )
+    list_editable = ("current_step",)
     list_filter = (MsgStepFilter, MsgKeyFilter)
 
     def display_key(self, obj):
