@@ -1,4 +1,5 @@
 import asyncio
+from uuid import uuid4
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
@@ -8,6 +9,9 @@ from ecommerce.telegram.account_manager import TMAccountManager
 from ecommerce.product.models import AccountSession, Order, Product
 
 from ecommerce.telegram.validators import Validator
+from utils.load_env import config as CONFIG
+from cryptomus import Client
+
 
 User = get_user_model()
 
@@ -95,8 +99,10 @@ class UserInputHandler:
     def __init__(self, base_handler=None):
         self.base_handler = base_handler
         self.steps = {
-            "get-amount": self.make_payment,
-            "select_amount": self.make_payment,
+            "perfectmoney-get-evoucher": self.perfectmoney_get_active_code,
+            "perfectmoney-get-active-code": self.perfectmoney_get_active_code,
+            "crypto-get-amount": self.crypto_get_amount,
+            "rial-get-amount": self.rial_get_amount,
         }
 
     def __getattr__(self, name):
@@ -107,15 +113,6 @@ class UserInputHandler:
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{name}'"
         )
-    
-    def make_payment(self):
-        msg = Message.objects.filter(current_step="payment").first()
-        url = f"google.com?pay={self.text}&user_id={self.chat_id}"
-        msg.keys = msg.keys.format(url=url, callback="")
-        reply_markup = self.generate_keyboards(msg)
-        text = msg.text.format(user_id=self.chat_id, amount=int(self.text))
-        self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
-
 
     def add_dynamic_admin_user_ticket_step(self):
         admin_user_ids = User.objects.filter(is_staff=True).values_list(
@@ -149,6 +146,51 @@ class UserInputHandler:
             reply_to_message_id=resp["result"]["message_id"],
             reply_markup=keys,
         )
+
+    # TODO: Validation payments
+    # TODO: Create transaction record in DB
+    def perfectmoney_get_evoucher(self):
+        msg = Message.objects.get(current_step="perfectmoney-get-active-code").text
+        self.user_qs.update(step="perfectmoney-get-active-code")
+        self.bot.send_message(self.chat_id, msg)
+
+    def perfectmoney_get_active_code(self):
+        msg = Message.objects.get(current_step="perfectmoney-success-recive-data")
+        reply_markup = self.generate_keyboards(msg)
+        self.user_qs.update(step="home_page")
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=reply_markup)
+
+    def crypto_get_amount(self):
+        url = "test.com"  # self._create_payment()
+        msg = Message.objects.get(current_step="crypto-payment")
+        msg.keys = msg.keys.format(url=url, callback="")
+        reply_markup = self.generate_keyboards(msg)
+        text = msg.text.format(user_id=self.chat_id)
+        self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
+
+    def _create_payment(self):
+        amount = self.convert_ir_num_to_en(self.text)
+        order_id = str(uuid4())
+        payload = {
+            "amount": amount,
+            "currency": "USD",
+            "order_id": order_id,
+            "subtract": "100",
+            "url_callback": "",  # TODO: resolve the url
+            "url_success": "",  # TODO: resolve the url
+        }
+        payment = Client.payment(CONFIG.API_KEY, CONFIG.MERCHANT)
+        response = payment.create(payload)
+        url = response["url"]
+        return url
+
+    def rial_get_amount(self):
+        url = "test.com"
+        msg = Message.objects.get(current_step="rial-payment")
+        msg.keys = msg.keys.format(url=url, callback="")
+        reply_markup = self.generate_keyboards(msg)
+        text = msg.text.format(user_id=self.chat_id)
+        self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
     def handlers(self):
         self.add_dynamic_admin_user_ticket_step()
