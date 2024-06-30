@@ -1,8 +1,9 @@
 from ecommerce.product.models import Product, AccountSession
 from ecommerce.bot.models import Message
+from utils.load_env import config as CONFIG
 
 
-class Validator:
+class Validators:
     def validate_user_balance(self, func):
         def wrapper(self, msg_obj):
             if self.user_obj.is_staff:
@@ -34,3 +35,26 @@ class Validator:
             self.bot.send_message(self.chat_id, text)
 
         return wrapper
+
+    @staticmethod
+    def validate_minimum_pay_amount(min_limit, currency_type):
+        def decorator(func):
+            def wrapper(self):
+                try:
+                    amount = int(self.text)
+                    if amount >= int(min_limit):
+                        return func(self)
+                    else:
+                        error_msg = "min-amount-limit-error"
+                        text = Message.objects.get(current_step=error_msg).text.format(
+                            min_amount=int(min_limit),
+                            pay_type=currency_type
+                        )
+                except ValueError:
+                    error_msg = "invalid-amount-format-error"
+                    text = Message.objects.get(current_step=error_msg).text
+
+                self.bot.send_message(self.chat_id, text)
+
+            return wrapper
+        return decorator

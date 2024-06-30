@@ -8,7 +8,7 @@ from ecommerce.bot.models import Message
 from ecommerce.telegram.account_manager import TMAccountManager
 from ecommerce.product.models import AccountSession, Order, Product
 
-from ecommerce.telegram.validators import Validator
+from ecommerce.telegram.validators import Validators
 from utils.load_env import config as CONFIG
 from cryptomus import Client
 
@@ -22,7 +22,7 @@ class UserTextHandler:
     methods-name are definded base on the keyboard-name in Message model.
     """
 
-    validators = Validator()
+    validators = Validators()
 
     def __init__(self, base_handler):
         self.base_handler = base_handler
@@ -96,6 +96,8 @@ class UserTextHandler:
 class UserInputHandler:
     """Get the user input base on the step"""
 
+    validators = Validators()
+
     def __init__(self, base_handler=None):
         self.base_handler = base_handler
         self.steps = {
@@ -160,6 +162,7 @@ class UserInputHandler:
         self.user_qs.update(step="home_page")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=reply_markup)
 
+    @validators.validate_minimum_pay_amount(CONFIG.MIN_DOLLAR_PAY_LIMIT, "دلار")
     def crypto_get_amount(self):
         url = "test.com"  # self._create_payment()
         msg = Message.objects.get(current_step="crypto-payment")
@@ -184,6 +187,7 @@ class UserInputHandler:
         url = response["url"]
         return url
 
+    @validators.validate_minimum_pay_amount(CONFIG.MIN_RIAL_PAY_LIMIT, "ریال")
     def rial_get_amount(self):
         url = "test.com"
         msg = Message.objects.get(current_step="rial-payment")
@@ -202,7 +206,7 @@ class UserInputHandler:
 
 
 class UserCallbackHandler(UserTextHandler):
-    validators = Validator()
+    validators = Validators()
 
     def __init__(self, base_handler=None) -> None:
         self.base_handler = base_handler
