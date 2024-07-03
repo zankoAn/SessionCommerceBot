@@ -2,9 +2,7 @@ from pathlib import Path
 
 from utils.load_env import config
 
-
 BASE_DIR = Path(__file__).resolve().parent.parent
-
 
 SECRET_KEY = config.SECRET_KEY
 DEBUG = config.DEBUG
@@ -13,7 +11,16 @@ CSRF_TRUSTED_ORIGINS = config.CSRF_TRUSTED_ORIGINS.split(",")
 CORS_ALLOWED_ORIGINS = CSRF_TRUSTED_ORIGINS
 # FORCE_SCRIPT_NAME = config.SCRIPT_NAME_
 
-AUTH_USER_MODEL = "account.User"
+INTERNAL_IPS = ["127.0.0.1"]
+ROOT_URLCONF = "config.urls"
+WSGI_APPLICATION = "config.wsgi.application"
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "Asia/Tehran"
+USE_I18N = True
+USE_TZ = True
+SITE_ID = 1
+
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -22,6 +29,7 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
+    "django.contrib.humanize",
 ]
 
 INSTALLED_APPS += [
@@ -42,12 +50,10 @@ MIDDLEWARE = [
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
 ]
 
-ROOT_URLCONF = "config.urls"
-
 TEMPLATES = [
     {
         "BACKEND": "django.template.backends.django.DjangoTemplates",
-        "DIRS": [],
+        "DIRS": [BASE_DIR / "templates"],
         "APP_DIRS": True,
         "OPTIONS": {
             "context_processors": [
@@ -62,16 +68,14 @@ TEMPLATES = [
 
 WSGI_APPLICATION = "config.wsgi.application"
 
+
 DATABASES = {
-    "default": {
-        "ENGINE": "django.db.backends.postgresql",
-        "NAME": config.DB_NAME,
-        "USER": config.DB_USER,
-        "PASSWORD": config.DB_PASSWORD,
-        "HOST": config.DB_HOST,
-        "PORT": config.DB_PORT,
+    'default': {
+        'ENGINE': 'django.db.backends.sqlite3',
+        'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
+
 
 AUTH_PASSWORD_VALIDATORS = [
     {
@@ -88,17 +92,18 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-LANGUAGE_CODE = "en-us"
-TIME_ZONE = "Asia/Tehran"
-USE_I18N = True
-USE_TZ = True
-STATIC_URL = "static/"
+STATIC_URL = "/static/"
+
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+AUTH_USER_MODEL = "account.User"
+
 
 CACHES = {
     "default": {
         "BACKEND": "django.core.cache.backends.redis.RedisCache",
         "LOCATION": "redis://127.0.0.1:6379",
-    },
-    "OPTIONS": {"db": "3"},
+        "TIMEOUT": 604800,
+        "OPTIONS": {"db": "3"},
+    }
 }
