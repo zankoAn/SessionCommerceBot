@@ -6,12 +6,15 @@ import requests
 from django.contrib.auth import get_user_model
 from django.shortcuts import redirect, render
 from django.utils.translation import gettext as _
+from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ecommerce.bot.models import Message
 from ecommerce.payment.exception import TransactionPaidBefore
-from ecommerce.payment.models import Transaction, ZarinPalPayment
+from ecommerce.payment.models import CryptoPayment, Transaction, ZarinPalPayment
+from ecommerce.payment.permission import WhitelistIPPermission
 from ecommerce.payment.services import TransactionService, ZarinPalPaymentService
+from ecommerce.payment.utils.crypto_symbol_price import Nobitex
 from ecommerce.telegram.telegram import Telegram
 from utils.load_env import config as CONFIG
 
@@ -50,7 +53,6 @@ class TransactionUtils:
         key = 0x5F
         deobfuscate_data = "".join(chr(ord(char) ^ key) for char in decoded_data)
         return deobfuscate_data
-
 
     @staticmethod
     def log_telegram_and_notify(transaction: Transaction):
@@ -324,3 +326,80 @@ class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
         transaction.save(update_fields=["status"])
         self.upgrade_user_balance(transaction.amount_rial, transaction.payer)
         self.log_telegram_and_notify(transaction)
+
+
+#########################
+# Cryptomus Transaction
+#
+class CryptoMusVerifyTransaction(APIView, TransactionUtils):
+    permission_classes = (WhitelistIPPermission,)
+    error_template_name = "payment/transaction_error.html"
+
+    def get_pay_amount_in_rial(self, amount_usd):
+        price_per_dollar = Nobitex().get_symbol_price()
+        pay_amount_rial = int(amount_usd * price_per_dollar)
+        return pay_amount_rial
+
+    def _get_transaction(self, order_id):
+        try:
+            transaction = TransactionService().get_payment(crypto__order_id=order_id)
+            return transaction
+
+        except Transaction.DoesNotExist:
+            return False
+
+        except CryptoPayment.DoesNotExist:
+            return False
+
+        except Exception as er:
+            print(er)
+            return False
+
+    def post(self, request):
+        data = request.data
+        order_id = data.get("order_id")
+        transaction = self._get_transaction(order_id)
+        if not transaction:
+            return Response("Hi")
+
+        status = data.get("status")
+        match status:
+            case "paid":
+                status = Transaction.StatusChoices.PAID
+            case "paid_over":
+                status = Transaction.StatusChoices.PAID_OVER
+            case "wrong_amount_waiting":
+                status = Transaction.StatusChoices.WRONG_AMOUNT
+                transaction.save(update_fields=["status"])
+                return Response("wrong amount")
+            case _:
+                transaction.status = Transaction.StatusChoices.FAIL
+                transaction.save(update_fields=["status"])
+                return Response("fail")
+
+        # Transaction
+        pay_amount_usd = float(data["payment_amount_usd"])
+        transaction.status = status
+        transaction.amount_rial = self.get_pay_amount_in_rial(pay_amount_usd)
+        transaction.amount_usd = pay_amount_usd
+        transaction.save(update_fields=["amount_rial", "amount_usd", "status"])
+        # Payment
+        transaction.crypto.from_addres = data["from"]
+        transaction.crypto.tx_hash = data["txid"]
+        transaction.crypto.network = data["network"]
+        transaction.crypto.currency = data["currency"]
+        transaction.crypto.payer_currency = data["payer_currency"]
+        transaction.crypto.payment_amount_coin = data["payment_amount"]
+        transaction.crypto.save()
+
+        self.upgrade_user_balance(transaction.amount_rial, transaction.payer)
+        self.log_telegram_and_notify(transaction)
+        return Response("OK")
+
+
+class CryptoMusSuccessTransaction(APIView, TransactionUtils):
+    success_template_name = "payment/transaction_success.html"
+
+    def get(self, request, *args, **kwargs):
+        context = {}
+        return render(request, self.success_template_name, context)
