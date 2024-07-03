@@ -129,6 +129,11 @@ class UserInputHandler:
         }
         self.steps.update(admin_user_steps)
 
+    def convert_ir_num_to_en(self, number):
+        trans_table = str.maketrans("۰۱۲۳۴۵۶۷۸۹", "0123456789")
+        english_string = number.translate(trans_table)
+        return english_string
+
     def ticket_msg(self):
         # Get admin-id from step
         user_id = int(self.user_obj.step.split("-")[-1])
