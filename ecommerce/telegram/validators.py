@@ -59,4 +59,37 @@ class Validators:
                 self.bot.send_message(self.chat_id, text)
 
             return wrapper
+
         return decorator
+
+    def validate_evoucher_length(self, func):
+        def wrapper(self):
+            try:
+                int(self.text)
+                evoucher_length = 10
+                if len(self.text) == evoucher_length:
+                    return func(self)
+                error_msg = "evoucher-length-error"
+            except ValueError:
+                error_msg = "invalid-amount-format-error"
+
+            text = Message.objects.get(current_step=error_msg).text
+            self.bot.send_message(self.chat_id, text)
+
+        return wrapper
+
+    def validate_activation_code_length(self, func):
+        def wrapper(self):
+            try:
+                int(self.text)
+                activation_code_length = 16
+                if len(self.text) == activation_code_length:
+                    return func(self)
+                error_msg = "activation-code-length-error"
+            except ValueError:
+                error_msg = "invalid-amount-format-error"
+
+            text = Message.objects.get(current_step=error_msg).text
+            self.bot.send_message(self.chat_id, text)
+
+        return wrapper
