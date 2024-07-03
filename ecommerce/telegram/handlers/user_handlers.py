@@ -217,6 +217,12 @@ class UserInputHandler:
         text = msg.text.format(user_id=self.chat_id)
         self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
+    def _obfuscate_url_params(self, data):
+        key = 0x5F
+        obfuscated_data = "".join(chr(ord(char) ^ key) for char in data)
+        encoded_data = base64.urlsafe_b64encode(obfuscated_data.encode())
+        return encoded_data.decode()
+
     def handlers(self):
         self.add_dynamic_admin_user_ticket_step()
         if callback := self.steps.get(self.user_obj.step):
