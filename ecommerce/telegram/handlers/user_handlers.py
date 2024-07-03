@@ -107,7 +107,7 @@ class UserInputHandler:
         self.steps = {
             "perfectmoney-get-evoucher": self.perfectmoney_get_evoucher,
             "perfectmoney-get-activation-code": self.perfectmoney_get_activation_code,
-            "crypto-get-amount": self.crypto_get_amount,
+            "crypto-get-amount": self.cryptomus_get_amount,
             "rial-get-amount": self.rial_get_amount,
         }
 
@@ -184,26 +184,32 @@ class UserInputHandler:
         self.bot.send_message(self.chat_id, msg.text, reply_markup=reply_markup)
 
     @validators.validate_minimum_pay_amount(CONFIG.MIN_DOLLAR_PAY_LIMIT, "دلار")
-    def crypto_get_amount(self):
-        url = "test.com"  # self._create_payment()
+    def cryptomus_get_amount(self):
+        url = self._cryptomus_create_payment()
         msg = Message.objects.get(current_step="crypto-payment")
         msg.keys = msg.keys.format(url=url, callback="")
         reply_markup = self.generate_keyboards(msg)
         text = msg.text.format(user_id=self.chat_id)
         self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
-    def _create_payment(self):
+    def _cryptomus_create_payment(self):
         amount = self.convert_ir_num_to_en(self.text)
-        order_id = str(uuid4())
+        payment = CryptoPaymentService().create_payment(
+            user=self.user_obj, order_id=str(uuid4())
+        )
+        payment.transaction.amount_usd = amount
+        payment.transaction.save(update_fields=["amount_usd"])
+        url_params = self._obfuscate_url_params(payment.order_id)
         payload = {
             "amount": amount,
             "currency": "USD",
-            "order_id": order_id,
+            "order_id": payment.order_id,
             "subtract": "100",
-            "url_callback": "",  # TODO: resolve the url
-            "url_success": "",  # TODO: resolve the url
+            "lifetime": CONFIG.CRYPTOMUS_LIFETIME,
+            "url_callback": f"{CONFIG.BASE_SITE_URL}{reverse('payment:verify-cryptomus-txn')}",
+            "url_success": f"{CONFIG.BASE_SITE_URL}{reverse('payment:success-cryptomus-txn', args=[url_params])}",
         }
-        payment = Client.payment(CONFIG.API_KEY, CONFIG.MERCHANT)
+        payment = Client.payment(CONFIG.CRYPTOMUS_API_KEY, CONFIG.CRYPTOMUS_MERCHANT)
         response = payment.create(payload)
         url = response["url"]
         return url
