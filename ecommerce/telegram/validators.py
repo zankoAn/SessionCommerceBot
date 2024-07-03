@@ -1,6 +1,5 @@
-from ecommerce.product.models import Product, AccountSession
 from ecommerce.bot.models import Message
-from utils.load_env import config as CONFIG
+from ecommerce.product.models import AccountSession, Product
 
 
 class Validators:
@@ -12,7 +11,9 @@ class Validators:
             # cache_key = f"limit-product-purchases:{self.chat_id}" # TODO: limit user to purchases the 3 account per 5 minute...;
             product = Product.objects.order_by("price").first()
             if self.user_obj.balance < product.price:
-                text = Message.objects.get(current_step="insufficient-balance-message").text
+                text = Message.objects.get(
+                    current_step="insufficient-balance-message"
+                ).text
                 self.bot.send_message(self.chat_id, text)
                 return
             return func(self, msg_obj)
@@ -29,7 +30,9 @@ class Validators:
             text = Message.objects.get(current_step="product-not-found-error").text
             # Check to see msg has inlinekeyboard.
             if getattr(self, "msg_reply_markup", None):
-                key = self.msg_reply_markup["inline_keyboard"][0] # Show country list key
+                key = self.msg_reply_markup["inline_keyboard"][
+                    0
+                ]  # Show country list keyboard
                 self.bot.remove_inline_keyboard(self.chat_id, self.message_id, key)
 
             self.bot.send_message(self.chat_id, text)
