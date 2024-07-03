@@ -44,14 +44,13 @@ class Validators:
         def decorator(func):
             def wrapper(self):
                 try:
-                    amount = int(self.text)
-                    if amount >= int(min_limit):
+                    amount = float(self.text)
+                    if amount >= float(min_limit):
                         return func(self)
                     else:
                         error_msg = "min-amount-limit-error"
                         text = Message.objects.get(current_step=error_msg).text.format(
-                            min_amount=int(min_limit),
-                            pay_type=currency_type
+                            min_amount=float(min_limit), pay_type=currency_type
                         )
                 except ValueError:
                     error_msg = "invalid-amount-format-error"
