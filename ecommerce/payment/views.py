@@ -1,10 +1,17 @@
 import base64
+import json
+import traceback
 
+import requests
 from django.contrib.auth import get_user_model
-
+from django.shortcuts import redirect, render
+from django.utils.translation import gettext as _
+from rest_framework.views import APIView
 
 from ecommerce.bot.models import Message
-from ecommerce.payment.models import Transaction
+from ecommerce.payment.exception import TransactionPaidBefore
+from ecommerce.payment.models import Transaction, ZarinPalPayment
+from ecommerce.payment.services import TransactionService, ZarinPalPaymentService
 from ecommerce.telegram.telegram import Telegram
 from utils.load_env import config as CONFIG
 
@@ -73,3 +80,247 @@ class TransactionUtils:
             payer.user_id, user_success_msg.text.format(balance=payer.balance)
         )
 
+
+#########################
+# ZarinPal Transaction
+#
+class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
+    error_template_name = "payment/transaction_error.html"
+
+    def get(self, request, *args, **kwargs):
+        txn = kwargs.get("txn")
+        decoded_data = self.deobfuscate_url_params(txn)
+        self.user_id, self.amount = self.extract_data_params(decoded_data)
+        authority = None
+        response = {}
+
+        if self.is_valid():
+            data = self.serialize_send_data()
+            response = self.send_data(data)
+            if not response or response.get("errors"):
+                return self.render_error_template(response, authority)
+
+            authority = response["data"]["authority"]
+            is_save = self.save_transaction(authority)
+            if is_save:
+                success_url = self.zarinpal_api_startpay.format(authority=authority)
+                return redirect(success_url)
+
+        return self.render_error_template(response, authority)
+
+    def extract_data_params(self, data):
+        try:
+            user_id, amount = data.split("&")[1:]
+            return user_id, amount
+        except Exception:
+            return 0, 0
+
+    def is_valid(self) -> bool:
+        try:
+            amount = int(self.amount)
+            if not self.validate_min_amount_limit(amount):
+                return False
+
+            user = User.objects.filter(user_id=self.user_id)
+            if not user:
+                return False
+
+            self.user = user.first()
+            return True
+        except Exception:
+            msg = traceback.format_exc().strip()
+            print(msg)
+            return False
+
+    def serialize_send_data(self):
+        data = {
+            "merchant_id": self.zarinpal_merchant,
+            "description": "description",
+            "callback_url": self.zarinpal_callback,
+            "amount": self.amount,
+            "metadata": {"mobile": "phone", "email": self.user_id},
+        }
+        return json.dumps(data)
+
+    def send_data(self, data: dict):
+        """Send transaction data to ``zarinpal`` and return the response."""
+        try:
+            return requests.post(
+                url=self.zarinpal_api_request, data=data, headers=self.zarinpal_headers
+            ).json()
+        except Exception:
+            msg = traceback.format_exc().strip()
+            print(msg)
+            return {}
+
+    def save_transaction(self, authority):
+        status = Transaction.StatusChoices.IN_PROGRESS
+        method = Transaction.PaymentMethodChoices.ZARINPAL
+        try:
+            last_transaction = TransactionService().get_payment(
+                payer=self.user, payment_method=method, status=status
+            )
+            TransactionService().update_payment(
+                payment_id=last_transaction.id,
+                payer=self.user,
+                amount_rial=self.amount,
+            )
+            ZarinPalPaymentService().update_payment(
+                payment_id=last_transaction.zarinpalpayment.id,
+                transaction=last_transaction.id,
+                authority=authority,
+            )
+            return True
+        except Exception:
+            return False
+
+    def render_error_template(self, response, authority):
+        return render(
+            request=self.request,
+            template_name=self.error_template_name,
+            context={
+                "message": _(response.get("errors", {}).get("message", "Bad Data")),
+                "authority": authority,
+                "user_id": self.user_id,
+            },
+        )
+
+
+class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
+    error_template_name = "payment/transaction_error.html"
+    success_template_name = "payment/transaction_success.html"
+
+    def _get_transaction(self):
+        """Get the transaction record if not paid before and authority exists
+        - Raises:
+            * ZarinPalPayment.DoesNotExist
+            * TransactionPaidBefore
+        """
+        try:
+            pay = ZarinPalPaymentService().get_payment(authority=self.authority)
+        except ZarinPalPayment.DoesNotExist:
+            raise ZarinPalPayment.DoesNotExist
+
+        transaction = pay.transaction
+        if transaction.status == Transaction.StatusChoices.PAID:
+            raise TransactionPaidBefore()
+        return transaction
+
+    def get(self, request):
+        self.status = request.GET.get("Status").lower()
+        self.authority = request.GET.get("Authority")
+        try:
+            if self.status != "ok":
+                raise ValueError()
+            transaction = self._get_transaction()
+        except TransactionPaidBefore:
+            return self.render_error_template(code="paid_before")
+        except Exception:
+            return self.render_error_template(code="bad_input")
+
+        response = self.send_verify_data(transaction.amount_rial)
+        context_data = None
+        if response:
+            context_data = self.handel_verify_response(response, transaction)
+            if context_data.get("code") == 100:
+                self.finalize_success_payment(transaction)
+                return self.render_success_template(context_data)
+            if context_data.get("code") == 101:
+                return self.render_error_template(code="paid_before")
+
+        transaction.status = Transaction.StatusChoices.FAIL
+        transaction.save(update_fields=["status"])
+        return self.render_error_template(code="bad_connection")
+
+    def render_error_template(self, context=None, code=""):
+        if not context:
+            contexts = {
+                "bad_connection": {
+                    "message": _("خطا در برقراری ارتباط با سرور پرداخت"),
+                    "authority": self.authority,
+                },
+                "bad_input": {
+                    "message": _("تراکنش با خطا مواجه شده است"),
+                    "authority": self.authority,
+                },
+                "paid_before": {
+                    "message": _("تراکنش قبلا تایید شده است."),
+                    "authority": self.authority,
+                },
+            }
+            context = contexts.get(code)
+
+        return render(
+            request=self.request,
+            template_name=self.error_template_name,
+            context=context,
+        )
+
+    def render_success_template(self, context):
+        return render(
+            request=self.request,
+            template_name=self.success_template_name,
+            context=context,
+        )
+
+    def send_verify_data(self, amount: int):
+        data = {
+            "merchant_id": self.zarinpal_merchant,
+            "amount": amount,
+            "authority": self.authority,
+        }
+        try:
+            return requests.post(
+                url=self.zarinpal_api_verify,
+                data=json.dumps(data),
+                headers=self.zarinpal_headers,
+            ).json()
+        except Exception:
+            msg = traceback.format_exc().strip()
+            print(msg)
+            return False
+
+    def handel_verify_response(self, response: dict, transaction: Transaction):
+        """
+        Handel the success verification responses and errors.
+        Response Status Code:
+        100:
+            Code 100 that means the transaction is successful.
+        101 and *:
+            Code 101 that means the transaction was verified once before.
+        """
+        user_id = transaction.payer.user_id
+        if response["errors"]:
+            return {
+                "message": _(response["errors"]["message"]),
+                "authority": self.authority,
+                "email": user_id,
+                "code": response["errors"]["code"],
+            }
+        else:
+            status_code = response["data"]["code"]
+            if status_code == 100:
+                return {
+                    "email": user_id,
+                    "amount": transaction.amount_rial,
+                    "authority": self.authority,
+                    "card_pan": response["data"]["card_pan"],
+                    "fee": response["data"]["fee"],
+                    "gift": 0,
+                    "code": 100,
+                }
+            elif status_code == 101:
+                return {"code": 101}
+            else:
+                return {
+                    "message": response["data"]["message"],
+                    "authority": self.authority,
+                    "email": user_id,
+                    "code": status_code,
+                }
+
+    def finalize_success_payment(self, transaction: Transaction):
+        transaction.status = Transaction.StatusChoices.PAID
+        transaction.save(update_fields=["status"])
+        self.upgrade_user_balance(transaction.amount_rial, transaction.payer)
+        self.log_telegram_and_notify(transaction)
