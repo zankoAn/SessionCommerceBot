@@ -108,7 +108,7 @@ class UserInputHandler:
             "perfectmoney-get-evoucher": self.perfectmoney_get_evoucher,
             "perfectmoney-get-activation-code": self.perfectmoney_get_activation_code,
             "crypto-get-amount": self.cryptomus_get_amount,
-            "rial-get-amount": self.rial_get_amount,
+            "rial-get-amount": self.zarinpal_get_rial_amount,
         }
 
     def __getattr__(self, name):
@@ -215,8 +215,13 @@ class UserInputHandler:
         return url
 
     @validators.validate_minimum_pay_amount(CONFIG.MIN_RIAL_PAY_LIMIT, "ریال")
-    def rial_get_amount(self):
-        url = "test.com"
+    def zarinpal_get_rial_amount(self):
+        ZarinPalPaymentService().create_payment(self.user_obj)
+        amount = self.convert_ir_num_to_en(self.text)
+        txn = self._obfuscate_url_params(
+            f"{self.user_obj.username}&{self.chat_id}&{amount}"
+        )
+        url = f"{CONFIG.BASE_SITE_URL}{reverse('payment:create-zarinpal-txn', args=[txn])}"
         msg = Message.objects.get(current_step="rial-payment")
         msg.keys = msg.keys.format(url=url, callback="")
         reply_markup = self.generate_keyboards(msg)
