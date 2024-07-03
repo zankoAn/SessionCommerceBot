@@ -105,8 +105,8 @@ class UserInputHandler:
     def __init__(self, base_handler=None):
         self.base_handler = base_handler
         self.steps = {
-            "perfectmoney-get-evoucher": self.perfectmoney_get_active_code,
-            "perfectmoney-get-active-code": self.perfectmoney_get_active_code,
+            "perfectmoney-get-evoucher": self.perfectmoney_get_evoucher,
+            "perfectmoney-get-activation-code": self.perfectmoney_get_activation_code,
             "crypto-get-amount": self.crypto_get_amount,
             "rial-get-amount": self.rial_get_amount,
         }
@@ -158,14 +158,26 @@ class UserInputHandler:
             reply_markup=keys,
         )
 
-    # TODO: Validation payments
-    # TODO: Create transaction record in DB
+    @validators.validate_evoucher_length
     def perfectmoney_get_evoucher(self):
-        msg = Message.objects.get(current_step="perfectmoney-get-active-code").text
-        self.user_qs.update(step="perfectmoney-get-active-code")
+        evoucher = self.convert_ir_num_to_en(self.text)
+        payment = PerfectMoneyPaymentService().create_payment(
+            self.user_obj, evoucher=evoucher
+        )
+        key = f"{self.chat_id}:perfectmoney:payment:id"
+        cache.set(key, payment.id)  # TODO: Add timout.
+        msg = Message.objects.get(current_step="perfectmoney-get-evcode").text
+        self.user_qs.update(step="perfectmoney-get-activation-code")
         self.bot.send_message(self.chat_id, msg)
 
-    def perfectmoney_get_active_code(self):
+    @validators.validate_activation_code_length
+    def perfectmoney_get_activation_code(self):
+        key = f"{self.chat_id}:perfectmoney:payment:id"
+        payment_id = cache.get(key)
+        activation_code = self.convert_ir_num_to_en(self.text)
+        PerfectMoneyPaymentService().update_payment(
+            payment_id, activation_code=activation_code
+        )
         msg = Message.objects.get(current_step="perfectmoney-success-recive-data")
         reply_markup = self.generate_keyboards(msg)
         self.user_qs.update(step="home_page")
