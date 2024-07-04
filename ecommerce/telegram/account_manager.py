@@ -54,13 +54,13 @@ class TMAccountManager:
                 session_obj.status = AccountSession.StatusChoices.active
                 await session_obj.asave()
                 await account.disconnect()
-                return True, session_obj.status.value, True
+                return True, session_obj.status.value
         except Exception as err:
             print(err)
 
         session_obj.status = AccountSession.StatusChoices.disable
         await session_obj.asave()
-        return False, session_obj.status.value, None
+        return False, session_obj.status.value
 
     async def extract_session_string(self):
         proxy = None
