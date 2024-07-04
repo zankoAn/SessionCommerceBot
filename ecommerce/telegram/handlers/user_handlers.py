@@ -278,21 +278,10 @@ class UserCallbackHandler(UserTextHandler):
         cached_data = cache.get(f"{self.chat_id}:order", {}).get(sub_key, 0)
         return cached_data
 
-    def admin_choice_country(self):
-        step = cache.get(f"{self.chat_id}:add-session-country")
-        msg = Message.objects.get(current_step=step)
-        self.bot.delete_message(self.chat_id, self.message_id)
-        keys = self.generate_keyboards(msg)
-        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        phone_code = self.callback_data.replace("add_session_phone_code_", "")
-        cache.set(f"{self.chat_id}:add-session-phone-code", phone_code)
-        self.user_qs.update(step=msg.current_step)
-
     @validators.validate_exists_product
     def back_to_show_countrys(self):
         msg = Message.objects.get(current_step="buy_phone_number")
-        # msg_obj = UserTextHandler(self).buy_phone_number(msg)
-        text = self.buy_phone_number(msg)  # TODO: why previse we create instance?
+        text = self.buy_phone_number(msg)
         reply_markup = self.generate_keyboards(text)
         self.bot.edit_message_text(
             self.chat_id, self.message_id, text.text, reply_markup=reply_markup
@@ -326,25 +315,6 @@ class UserCallbackHandler(UserTextHandler):
             msg.text.format(phone=session.phone),
             reply_markup=keys,
         )
-
-    def get_active_account_session(self, product):
-        return (
-            AccountSession.objects.filter(
-                product=product, status=AccountSession.StatusChoices.active
-            )
-            .order_by("?")
-            .first()
-        )
-
-    def send_no_phone_error(self):
-        msg = Message.objects.get(current_step="no-phone-error").text
-        return self.bot.send_message(self.chat_id, msg)
-
-    def create_order_and_decrease_inventory(self, session, product):
-        Order.objects.create(user=self.user_obj, session=session, price=product.price)
-        if self.user_obj.balance > product.price:
-            self.user_obj.balance -= product.price
-            self.user_obj.save()
 
     def get_login_code(self):
         phone = self.get_cached_data("phone")
