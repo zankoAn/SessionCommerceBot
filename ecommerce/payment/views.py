@@ -101,7 +101,6 @@ class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
             response = self.send_data(data)
             if not response or response.get("errors"):
                 return self.render_error_template(response, authority)
-
             authority = response["data"]["authority"]
             is_save = self.save_transaction(authority)
             if is_save:
@@ -296,19 +295,18 @@ class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
             return {
                 "message": _(response["errors"]["message"]),
                 "authority": self.authority,
-                "email": user_id,
+                "user_id": user_id,
                 "code": response["errors"]["code"],
             }
         else:
             status_code = response["data"]["code"]
             if status_code == 100:
                 return {
-                    "email": user_id,
+                    "txn_type": "zarinpal",
+                    "user_id": user_id,
                     "amount": transaction.amount_rial,
                     "authority": self.authority,
                     "card_pan": response["data"]["card_pan"],
-                    "fee": response["data"]["fee"],
-                    "gift": 0,
                     "code": 100,
                 }
             elif status_code == 101:
@@ -317,7 +315,7 @@ class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
                 return {
                     "message": response["data"]["message"],
                     "authority": self.authority,
-                    "email": user_id,
+                    "user_id": user_id,
                     "code": status_code,
                 }
 
