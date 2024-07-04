@@ -11,7 +11,7 @@ from pyrogram import errors
 from pyrogram.enums import SentCodeType
 
 from ecommerce.bot.models import BotUpdateStatus, Message
-from ecommerce.payment.models import Payment
+from ecommerce.payment.models import Transaction
 from ecommerce.product.models import AccountSession, Order, Product
 from ecommerce.telegram.account_manager import TMAccountManager
 from fixtures.app_info import fake_info_list
@@ -43,7 +43,7 @@ class AdminTextHandler:
         msg.keys = keys.strip()
         return msg
 
-    def admin_get_bot_info(self, msg_obj):
+    def admin_statistics(self, msg_obj):
         now = timezone.now()
         current_month_start = now.date() - timedelta(days=31)
         current_week_start = now.date() - timedelta(days=7)
@@ -75,48 +75,42 @@ class AdminTextHandler:
             total=Count("id"),
         )
         result_pay = (
-            Payment.objects.filter(is_paid=True)
+            Transaction.objects.filter(
+                Q(status=Transaction.StatusChoices.PAID)
+                | Q(status=Transaction.StatusChoices.PAID_OVER)
+            )
             .exclude(payer__in=admins)
             .aggregate(
                 current_month=Sum(
                     Case(
-                        When(created__gte=current_month_start, then=F("amount")),
-                        default=Value(None),
+                        When(created__gte=current_month_start, then=F("amount_rial")),
+                        default=Value(0),
                         output_field=IntegerField(),
                     )
                 ),
                 current_week=Sum(
                     Case(
-                        When(created__gte=current_week_start, then=F("amount")),
-                        default=Value(None),
+                        When(created__gte=current_week_start, then=F("amount_rial")),
+                        default=Value(0),
                         output_field=IntegerField(),
                     )
                 ),
                 current_day=Sum(
                     Case(
-                        When(created__gte=current_day_start, then=F("amount")),
-                        default=Value(None),
+                        When(created__gte=current_day_start, then=F("amount_rial")),
+                        default=Value(0),
                         output_field=IntegerField(),
                     )
                 ),
-                total=Sum("amount"),
+                total=Sum("amount_rial"),
             )
         )
         return msg_obj.text.format(
-            total_users_per_day=result_user["current_day"],
-            total_users_per_week=result_user["current_week"],
-            total_users_per_month=result_user["current_month"],
-            total_users=result_user["total"],
-            total_payments_per_day=result_pay["current_day"],
-            total_payments_per_week=result_pay["current_week"],
-            total_payments_per_month=result_pay["current_month"],
-            total_payments=result_pay["total"],
-        )
-
-    def admin_statistics(self, msg_obj):
-        return msg_obj.text.format(
             users=User.objects.count(),
-            buy_count=Payment.objects.filter(is_paid=True).count(),
+            buy_count=Transaction.objects.filter(
+                Q(status=Transaction.StatusChoices.PAID)
+                | Q(status=Transaction.StatusChoices.PAID_OVER)
+            ).count(),
             sell_count=Order.objects.filter(status=Order.StatusChoices.down).count(),
             disable_account=AccountSession.objects.filter(
                 Q(status=AccountSession.StatusChoices.disable)
@@ -125,6 +119,14 @@ class AdminTextHandler:
             enable_account=AccountSession.objects.filter(
                 status=AccountSession.StatusChoices.active
             ).count(),
+            total_users_per_day=result_user["current_day"],
+            total_users_per_week=result_user["current_week"],
+            total_users_per_month=result_user["current_month"],
+            total_users=result_user["total"],
+            total_payments_per_day=result_pay["current_day"] or 0,
+            total_payments_per_week=result_pay["current_week"] or 0,
+            total_payments_per_month=result_pay["current_month"] or 0,
+            total_payments=result_pay["total"] or 0,
         )
 
     def admin_bot_status(self, msg_obj):
