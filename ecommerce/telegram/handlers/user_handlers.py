@@ -12,6 +12,11 @@ from ecommerce.payment.services import (
     PerfectMoneyPaymentService,
     CryptoPaymentService,
 )
+from ecommerce.product.services import (
+    OrderService,
+    ProductService,
+    AccountSessionService,
+)
 from ecommerce.telegram.validators import Validators
 from utils.load_env import config as CONFIG
 from cryptomus import Client
@@ -51,13 +56,11 @@ class UserTextHandler:
     @validators.validate_user_balance
     @validators.validate_exists_product
     def buy_phone_number(self, msg_obj):
-        products = Product.objects.filter(
-            accounts__status=AccountSession.StatusChoices.active
-        )
+        products = ProductService().get_active_countries()
         keys = ""
         for product in products:
             keys += (
-                f"\n{product.price:,} | {product.name}:country_{product.country_code}:"
+                f"\n{product.price:,} | {product.name}:country-{product.country_code}:"
             )
         msg_obj.keys = keys.strip()
         return msg_obj
