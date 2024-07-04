@@ -1,5 +1,6 @@
 from django.contrib import admin
-from .models import *
+
+from .models import AccountSession, Order, Product
 
 
 @admin.register(Product)
@@ -12,9 +13,9 @@ class ProductAdmin(admin.ModelAdmin):
 
 @admin.register(AccountSession)
 class AccountSessionAdmin(admin.ModelAdmin):
-    list_display = ("id", "phone", "proxy", "status")
+    list_display = ("id", "phone", "product", "proxy", "status")
     list_editable = ("proxy", "status")
-    list_filter = ("status", )
+    list_filter = ("status",)
     list_display_links = ("id", "phone")
     search_fields = ("id", "proxy", "phone", "status")
 
