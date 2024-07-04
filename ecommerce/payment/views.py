@@ -167,7 +167,7 @@ class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
                 amount_rial=self.amount,
             )
             ZarinPalPaymentService().update_payment(
-                payment_id=last_transaction.zarinpalpayment.id,
+                payment_id=last_transaction.zarinpal.id,
                 transaction=last_transaction.id,
                 authority=authority,
             )
