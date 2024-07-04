@@ -252,10 +252,9 @@ class UserCallbackHandler(UserTextHandler):
     def __init__(self, base_handler=None) -> None:
         self.base_handler = base_handler
         self.callback_handlers = {
-            "country_": self.get_phone_number,
+            "country-": self.select_country,
             "back_to_show_countrys": self.back_to_show_countrys,
             "login_code": self.get_login_code,
-            "add_session_phone_code_": self.admin_choice_country,
         }
 
     def __getattr__(self, name):
@@ -287,27 +286,34 @@ class UserCallbackHandler(UserTextHandler):
             self.chat_id, self.message_id, text.text, reply_markup=reply_markup
         )
 
-    def get_phone_number(self):
-        _, cr_code = self.callback_data.split("_")
-        product = Product.objects.get(country_code=cr_code)
-
-        session = self.get_active_account_session(product)
+    def select_country(self):
+        """Get the related country session and return phone number"""
+        country_code = self.callback_data.split("-")[1]
+        session = AccountSessionService().get_random_session(country_code)
         if not session:
-            return self.send_no_phone_error()
-
-        # Check session to see is connect
-        status, _, __ = asyncio.run(
-            TMAccountManager(session_id=session.id).check_session_status()
-        )
-        if not status:
             return self.back_to_show_countrys()
 
-        session.status = AccountSession.StatusChoices.purchased
-        session.save()
+        connect, _ = asyncio.run(
+            TMAccountManager(session_id=session.id).check_session_status()
+        )
+        if not connect:
+            self.bot.send_answer_callback_query(
+                self.callback_query_id, "❌ Session Problem"
+            )
+            return self.back_to_show_countrys()
 
-        self.create_order_and_decrease_inventory(session, product)
+        order = OrderService().create_order(session, self.user_obj)
+        if not order:
+            self.bot.send_answer_callback_query(
+                self.callback_query_id, "❌ Order problem"
+            )
+            return self.back_to_show_countrys()
+
+        # Cache phone-number for get-login-code rate limit
+        cache.set(f"{self.chat_id}:order:get:login:code:{session.phone}", 1)
 
         msg = Message.objects.filter(current_step="show-phone-number").first()
+        msg.keys = msg.keys.format(phone=session.phone)
         keys = self.generate_keyboards(msg)
         self.bot.edit_message_text(
             self.chat_id,
@@ -317,39 +323,42 @@ class UserCallbackHandler(UserTextHandler):
         )
 
     def get_login_code(self):
-        phone = self.get_cached_data("phone")
+        phone = self.callback_data.split("-")[1]
         msg = Message.objects.get(current_step="show-login-code")
-        login_code_counter_key = f"{self.chat_id}:order:get:login:code:{phone}"
 
-        if not cache.get(login_code_counter_key):
-            cache.set(login_code_counter_key, 1)
-
-        if int(cache.get(login_code_counter_key)) > 3:
-            password = data = "Reach limit"
+        # Check get code rate limit
+        rate_limit_key = f"{self.chat_id}:order:get:login:code:{phone}"
+        if int(cache.get(rate_limit_key) or 0) > int(CONFIG.GET_LOGIN_CODE_LIMIT):
             msg = Message.objects.get(current_step="limit-login-code-error").text
-            self.bot.send_answer_callback_query(self.callback_query_id, "❌ ")
-            return self.bot.send_message(self.chat_id, msg)
-        else:
-            session = AccountSession.objects.get(phone=phone)
-            password = session.password
-            status, data, err = asyncio.run(
-                TMAccountManager().retrive_login_code(phone)
+            return self.bot.send_answer_callback_query(
+                self.callback_query_id, msg, show_alert=True
             )
-            if status:
-                Order.objects.filter(session=session.id).update(login_code=data)
-            else:
-                return self.bot.send_answer_callback_query(
-                    self.callback_query_id, "❌ کد یافت نشد ❌"
-                )
 
+        session = AccountSessionService().get_session(phone)
+        if not session:
+            return self.bot.send_answer_callback_query(
+                self.callback_query_id, "❌ شماره یافت نشد ❌"
+            )
+
+        status, data, err = asyncio.run(TMAccountManager().retrive_login_code(phone))
+        if not status:
+            return self.bot.send_answer_callback_query(
+                self.callback_query_id, "❌ کد یافت نشد ❌"
+            )
+
+        # Store login code
+        session.order.login_code = data
+        session.order.save(update_fields=["login_code"])
+
+        msg.keys = msg.keys.format(phone=phone)
         keys = self.generate_keyboards(msg)
         self.bot.send_message(
             self.chat_id,
-            msg.text.format(code=str(data), password=password),
+            msg.text.format(code=str(data), password=session.password),
             reply_markup=keys,
         )
         self.bot.send_answer_callback_query(self.callback_query_id, "✅")
-        cache.incr(login_code_counter_key)
+        cache.incr(rate_limit_key)
 
     def handler(self):
         callback_data = self.callback_data
