@@ -131,7 +131,7 @@ class AdminTextHandler:
 
     def admin_bot_status(self, msg_obj):
         status = BotUpdateStatus.objects.first().is_update
-        return msg_obj.format(status="غیر فعال 🚫" if status else "فعال است ✅")
+        return msg_obj.text.format(status="غیر فعال 🚫" if status else "فعال است ✅")
 
     def admin_add_session_file_get_country(self, msg_obj):
         cache_key = f"{self.chat_id}:add-session-country"
