@@ -242,21 +242,6 @@ class Telegram:
         result = self.bot("sendDocument", data=data, method=method, input_file=file_doc)
         return result
 
-    def send_answer_callback_query(self, callback_query_id, text: str, **kwargs):
-        """
-        This Method for send_AnswerCallbackQuery in telegram.
-            **kwargs :
-                show_alert -> Bool ,
-                url -> text ,
-                cache_time -> Int ,
-        """
-        method = "GET"
-
-        data = {"callback_query_id": str(callback_query_id), "text": text}
-        data.update(**kwargs)
-        result = self.bot("answerCallbackQuery", data=data, method=method)
-        return result
-
     def delete_message(self, chat_id, message_id: int):
         """This Method for delete_Message in telegram."""
         method = "GET"
