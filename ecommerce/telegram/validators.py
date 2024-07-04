@@ -30,11 +30,11 @@ class Validators:
             text = Message.objects.get(current_step="product-not-found-error").text
             # Check to see msg has inlinekeyboard.
             if getattr(self, "msg_reply_markup", None):
-                key = self.msg_reply_markup["inline_keyboard"][
-                    0
-                ]  # Show country list keyboard
+                # Show list country keyboard
+                key = self.msg_reply_markup["inline_keyboard"][0]
                 self.bot.remove_inline_keyboard(self.chat_id, self.message_id, key)
 
+            self.bot.delete_message(self.chat_id, self.message_id)
             self.bot.send_message(self.chat_id, text)
 
         return wrapper
