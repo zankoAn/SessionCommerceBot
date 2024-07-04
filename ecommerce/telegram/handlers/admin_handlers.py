@@ -43,19 +43,6 @@ class AdminTextHandler:
         msg.keys = keys.strip()
         return msg
 
-    def user_profile(self, msg_obj):
-        return msg_obj.text.format(
-            user_id=self.chat_id,
-            total_order=self.user_obj.orders.count(),
-            total_pay=self.user_obj.calculate_total_paid,
-            balance=self.user_obj.balance,
-        )
-
-    def discount_referral_page(self, msg_obj):
-        return msg_obj.format(
-            user_id=self.user_obj.user_id, discount_msg=self.discount_msg()
-        )
-
     def admin_get_bot_info(self, msg_obj):
         now = timezone.now()
         current_month_start = now.date() - timedelta(days=31)
