@@ -266,17 +266,6 @@ class UserCallbackHandler(UserTextHandler):
             f"'{self.__class__.__name__}' object has no attribute '{name}'"
         )
 
-    def update_cached_data(self, **kwargs):
-        cached_data = cache.get(f"{self.chat_id}:order", {})
-        for key, value in kwargs.items():
-            cached_data[key] = value
-
-        cache.set(f"{self.chat_id}:order", cached_data, timeout=None)
-
-    def get_cached_data(self, sub_key):
-        cached_data = cache.get(f"{self.chat_id}:order", {}).get(sub_key, 0)
-        return cached_data
-
     @validators.validate_exists_product
     def back_to_show_countrys(self):
         msg = Message.objects.get(current_step="buy_phone_number")
