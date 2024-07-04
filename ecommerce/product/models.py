@@ -137,7 +137,7 @@ class Order(models.Model):
     )
     session = models.OneToOneField(
         to=AccountSession,
-        related_name="session",
+        related_name="order",
         on_delete=models.CASCADE,
     )
     login_code = models.CharField(
