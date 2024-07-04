@@ -396,8 +396,23 @@ class CryptoMusVerifyTransaction(APIView, TransactionUtils):
 
 
 class CryptoMusSuccessTransaction(APIView, TransactionUtils):
+    error_template_name = "payment/transaction_error.html"
     success_template_name = "payment/transaction_success.html"
 
     def get(self, request, *args, **kwargs):
-        context = {}
+        data = kwargs.get("oi")
+        order_id = self.deobfuscate_url_params(data)
+        context = {"txn_type": "crypto"}
+        if not order_id:
+            return render(request, self.error_template_name, context)
+        try:
+            transaction = TransactionService().get_payment(crypto__order_id=order_id)
+        except Transaction.DoesNotExist:
+            return render(request, self.error_template_name, context)
+
+        context.update({
+            "txn_hash": transaction.crypto.tx_hash,
+            "txn_amount_usd": transaction.amount_usd,
+            "txn_amount_rial": transaction.amount_rial,
+        })
         return render(request, self.success_template_name, context)
