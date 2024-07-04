@@ -1,0 +1,162 @@
+/* Container */
+.payment {
+    display: flex;
+    flex-direction: column;
+	row-gap: 40px;
+    width: 700px;
+    align-items: center;
+	justify-self: center;
+	background-color: #ffffff;
+    margin-top: 100px;
+	padding-block: 40px;
+	border-radius: 10px;    
+	animation: fade-in 0.6s forwards, scale-up 0.6s forwards;
+}
+
+#error {
+    box-shadow: 0px 1px 4px #ff5f5f;
+}
+
+#success {
+    box-shadow: 0px 1px 4px #5fffac;
+}
+
+header {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	row-gap: 10px;
+}
+
+header > .title{
+    font-size: 26px;    
+    margin: 5px 0 30px 0;
+}
+
+#error > header > .title {
+    color:  #ff7070;
+}
+#success > header > .title {
+    color:  #5fffac;
+}
+
+/* Metadata */
+.metadata {
+	display: flex;
+    flex-direction: column;
+    row-gap: 40px;
+    align-self: normal;
+    padding-inline: 50px;
+	font-size: 18px;
+}
+
+/* Each metadata row */
+.metadata > * {
+	display: flex;
+    justify-content: space-between;
+	color: #272650;
+    padding: 10px 5px;
+}
+
+#error > .metadata > * {
+    border-bottom: 1px solid #ff7070;
+}
+
+#success > .metadata > * {
+    border-bottom: 1px solid #5fffac;
+}
+
+.metadata > .help {
+    font-size: 22px;    
+    text-align: center;
+}
+
+#error > .metadata > .help {
+    color: #ff7070;
+}
+
+/* Submit btn */
+.submit-txn {
+	display: flex;
+	width: 300px;
+    column-gap: 10px;
+    align-items: center;
+    justify-content: center;
+    color: #ffffff;
+    padding: 10px;
+    cursor: pointer;
+    border-radius: 8px;
+    font-size: 22px;
+}
+
+#error >.submit-txn {
+    background-color: #ff7272;
+}
+
+#success >.submit-txn {
+    background-color: #2bee89;
+    color: #272650;
+}
+
+#success > .metadata > .tracking-number > .body {
+    overflow: hidden;
+}
+
+#success > .metadata > .tracking-number > .body:hover {
+    overflow: overlay;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+    }
+
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes scale-up {
+    from {
+        transform: scale(0.5);
+    }
+
+    to {
+        transform: scale(1);
+    }
+}
+
+
+@media only screen and (max-width: 480px) {
+	.payment {
+        row-gap: 0;
+		width: 350px;
+	}
+
+	header > .title {
+		font-size: 18px;
+	}
+
+	.metadata {
+		padding-inline: 10px;
+		font-size: 16px;
+	}
+
+	.metadata > * {
+		flex-direction: column;
+		row-gap: 10px;
+    	align-items: center;
+	}
+    
+    .metadata > .tracking-number {
+        font-size: 14px;
+    }
+
+    .metadata > .help {
+        font-size: 15px;
+    }
+
+    .submit-txn {
+        margin-top: 30px;
+    }
+}

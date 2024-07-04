@@ -1,0 +1,26 @@
+{% load static %}
+<!DOCTYPE html>
+<html itemscope="itemscope" itemtype="http://schema.org/WebPage" dir="rtl" lang="fa-IR">
+    <head>
+        <title>ربات خانه سشن</title>
+        <meta charset="utf-8"/>
+        <meta name="description" content="{{ WEBSITE_DESCRIPTION }}"/>
+        <meta name="keywords" content="telegram, session, follower, reaction, like, comment"/>
+        <meta name='robots' content='max-image-preview:large, index, follow'/>
+        <meta name="viewport" content="width=device-width, initial-scale=1"/>
+        <meta http-equiv="content-type" content="text/html;charset=UTF-8"/>
+        <meta name="theme-color" content="#f8f9fb"/>
+        {% block dynamic_header %}{% endblock dynamic_header %}
+        <link rel='dns-prefetch' href='http://cdn.jquery.com/'/>
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
+        <link rel='stylesheet' href="{% static 'css/base.css' %}"/>
+        <link href="https://cdn.jsdelivr.net/gh/rastikerdar/vazirmatn@v33.003/Vazirmatn-font-face.css" rel="stylesheet" type="text/css"/>
+    </head>
+    <body>
+        <div class="base-page">
+            <div class="content">
+                {% block content %}{% endblock content %}
+            </div>
+        </div>
+    </body>
+</html>

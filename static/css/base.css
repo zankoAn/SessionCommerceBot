@@ -1,0 +1,35 @@
+body {
+    margin: 0;
+    padding: 0;
+    font-family: Vazirmatn, sans-serif;
+    background-color: #F8F9FB;
+}
+
+a {
+    text-decoration: none;
+}
+
+.base-page {
+    margin-top: 3%;
+    display: grid;
+    grid-template-rows: auto;
+}
+
+.base-page>.content {
+    display: grid;
+}
+
+
+@keyframes gradientAnimation {
+    0% {
+        background-position: 0 50%;
+    }
+
+    50% {
+        background-position: 100% 50%;
+    }
+
+    100% {
+        background-position: 0 50%;
+    }
+}
