@@ -208,10 +208,10 @@ class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
         return transaction
 
     def get(self, request):
-        self.status = request.GET.get("Status").lower()
+        status = request.GET.get("Status")
         self.authority = request.GET.get("Authority")
         try:
-            if self.status != "ok":
+            if status.lower() != "ok":
                 raise ValueError()
             transaction = self._get_transaction()
         except TransactionPaidBefore:
