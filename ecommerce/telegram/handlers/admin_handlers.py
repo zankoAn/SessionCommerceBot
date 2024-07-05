@@ -12,7 +12,9 @@ from pyrogram.enums import SentCodeType
 
 from ecommerce.bot.models import BotUpdateStatus, Message
 from ecommerce.payment.models import Transaction
+from ecommerce.payment.services import TransactionService
 from ecommerce.product.models import AccountSession, Order, Product
+from ecommerce.product.services import AccountSessionService, OrderService
 from ecommerce.telegram.account_manager import TMAccountManager
 from fixtures.app_info import fake_info_list
 from utils.load_env import config as CONFIG
@@ -74,55 +76,19 @@ class AdminTextHandler:
             ),
             total=Count("id"),
         )
-        result_pay = (
-            Transaction.objects.filter(
-                Q(status=Transaction.StatusChoices.PAID)
-                | Q(status=Transaction.StatusChoices.PAID_OVER)
-            )
-            .exclude(payer__in=admins)
-            .aggregate(
-                current_month=Sum(
-                    Case(
-                        When(created__gte=current_month_start, then=F("amount_rial")),
-                        default=Value(0),
-                        output_field=IntegerField(),
-                    )
-                ),
-                current_week=Sum(
-                    Case(
-                        When(created__gte=current_week_start, then=F("amount_rial")),
-                        default=Value(0),
-                        output_field=IntegerField(),
-                    )
-                ),
-                current_day=Sum(
-                    Case(
-                        When(created__gte=current_day_start, then=F("amount_rial")),
-                        default=Value(0),
-                        output_field=IntegerField(),
-                    )
-                ),
-                total=Sum("amount_rial"),
-            )
+        result_pay = TransactionService().get_transactions_statistics(
+            admins, current_day_start, current_week_start, current_month_start
         )
         return msg_obj.text.format(
             users=User.objects.count(),
-            buy_count=Transaction.objects.filter(
-                Q(status=Transaction.StatusChoices.PAID)
-                | Q(status=Transaction.StatusChoices.PAID_OVER)
-            ).count(),
-            sell_count=Order.objects.filter(status=Order.StatusChoices.down).count(),
-            disable_account=AccountSession.objects.filter(
-                Q(status=AccountSession.StatusChoices.disable)
-                & Q(status=AccountSession.StatusChoices.purchased)
-            ).count(),
-            enable_account=AccountSession.objects.filter(
-                status=AccountSession.StatusChoices.active
-            ).count(),
+            sell_count=OrderService().get_success_order_count(),
+            disable_account=AccountSessionService().get_deactive_session_count(),
+            enable_account=AccountSessionService().get_active_session_count(),
             total_users_per_day=result_user["current_day"],
             total_users_per_week=result_user["current_week"],
             total_users_per_month=result_user["current_month"],
             total_users=result_user["total"],
+            total_pays=result_pay["total_pays"],
             total_payments_per_day=result_pay["current_day"] or 0,
             total_payments_per_week=result_pay["current_week"] or 0,
             total_payments_per_month=result_pay["current_month"] or 0,
@@ -234,6 +200,7 @@ class AdminStepHandler:
                 total_session=0,
                 total_pay=user.calculate_total_paid,
                 created=user.date_joined.strftime("%Y-%m-%d %H:%M:%S"),
+                total_orders_cnt=OrderService().get_total_cnt_user_order(user.id),
             )
         else:
             text_msg = "❌ User not found"
