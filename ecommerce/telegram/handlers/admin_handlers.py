@@ -41,7 +41,7 @@ class AdminTextHandler:
         products = Product.objects.all()
         keys = ""
         for product in products:
-            keys += f"\n{product.name}:add_session_phone_code_{product.phone_code}:"
+            keys += f"\n{product.name}:add-session-country-{product.country_code}:"
         msg.keys = keys.strip()
         return msg
 
@@ -51,7 +51,6 @@ class AdminTextHandler:
         current_week_start = now.date() - timedelta(days=7)
         current_day_start = now.date() - timedelta(days=1)
         admins = User.objects.filter(is_staff=True)
-
         result_user = User.objects.aggregate(
             current_month=Count(
                 Case(
@@ -100,18 +99,18 @@ class AdminTextHandler:
         return msg_obj.text.format(status="غیر فعال 🚫" if status else "فعال است ✅")
 
     def admin_add_session_file_get_country(self, msg_obj):
-        cache_key = f"{self.chat_id}:add-session-country"
-        cache.set(cache_key, "admin-get-session-file")
+        cache_key = f"{self.chat_id}:add:session:type"
+        cache.set(cache_key, "file")
         return self._show_country(msg_obj)
 
     def admin_add_session_string_get_country(self, msg_obj):
-        cache_key = f"{self.chat_id}:add-session-country"
-        cache.set(cache_key, "admin-get-session-string")
+        cache_key = f"{self.chat_id}:add:session:type"
+        cache.set(cache_key, "string")
         return self._show_country(msg_obj)
 
     def admin_add_session_phone_get_country(self, msg_obj):
-        cache_key = f"{self.chat_id}:add-session-country"
-        cache.set(cache_key, "admin-get-session-phone")
+        cache_key = f"{self.chat_id}:add:session:type"
+        cache.set(cache_key, "phone")
         return self._show_country(msg_obj)
 
     def back_to_add_session(self, msg_obj):
