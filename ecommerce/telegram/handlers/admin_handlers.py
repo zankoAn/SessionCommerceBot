@@ -113,11 +113,17 @@ class AdminTextHandler:
         cache.set(cache_key, "phone")
         return self._show_country(msg_obj)
 
-    def back_to_add_session(self, msg_obj):
-        # print(my_loop)  # TODO: must checked
-        if my_loop:
-            my_loop.close()
+    def event_loop_cleanup(self, loop_name):
+        if f"{loop_name}" not in globals():
+            return
 
+        for task in asyncio.all_tasks(session_loop):
+            task.cancel()
+
+        session_loop.close()
+
+    def admin_back_to_add_session(self, msg_obj):
+        self.event_loop_cleanup("session_loop")
         return msg_obj
 
     def handler(self):
