@@ -93,3 +93,13 @@ class Validators:
             self.bot.send_message(self.chat_id, text)
 
         return wrapper
+
+    def validate_phone_number(self, func):
+        def wrapper(self, product=None):
+            msg = Message.objects.get(current_step="phone-number-fmt-error").text
+            user_phone = self.text.replace(" ", "").replace("-", "").strip()
+            if not (10 < len(user_phone) < 15):  # phone length is not between 10...15
+                return self.bot.send_message(self.chat_id, msg)
+            return func(self)
+
+        return wrapper

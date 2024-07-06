@@ -16,6 +16,7 @@ from ecommerce.payment.services import TransactionService
 from ecommerce.product.models import AccountSession, Order, Product
 from ecommerce.product.services import AccountSessionService, OrderService
 from ecommerce.telegram.account_manager import TMAccountManager
+from ecommerce.telegram.validators import Validators
 from fixtures.app_info import fake_info_list
 from utils.load_env import config as CONFIG
 
@@ -154,6 +155,8 @@ class AdminTextHandler:
 
 
 class AdminStepHandler:
+    validators = Validators()
+
     def __init__(self, base_handler=None):
         self.base_handler = base_handler
         self.steps = {
@@ -191,7 +194,6 @@ class AdminStepHandler:
         cache.set(f"{self.chat_id}:{key}", cached_data)
 
     def user_info(self):
-        # TODO: show the total orders
         user = self.text
         user = User.objects.filter(Q(username=user) | Q(user_id=user)).first()
         if user:
@@ -259,29 +261,14 @@ class AdminStepHandler:
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.user_qs.update(step="admin-get-api-id-hash-session")
 
-    def add_session_phone(self):
-        error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
-        user_phone = self.text.replace(" ", "")
-        if not 10 < len(user_phone) < 15:
-            return self.bot.send_message(self.chat_id, error_msg)
-
-        phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
-        product = Product.objects.get(phone_code=phone_code)
-        if user_phone[:1] != phone_code[:1]:
-            return self.bot.send_message(self.chat_id, error_msg)
-
-        random_info = random.choice(fake_info_list)
-        session, _ = AccountSession.objects.get_or_create(
-            phone=user_phone,
-            product=product,
-            app_version=random_info["app_version"],
-            device_model=random_info["device_model"],
-            system_version=random_info["system_version"],
-        )
+    @validators.validate_phone_country_code
+    @validators.validate_phone_number
+    def add_session_phone(self, product=None):
+        session = AccountSessionService().create_session(self.text, product)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.update_cached_data(key="session", session_id=session.id)
-        self.user_qs.update(step="admin-get-api-id-hash-login")
+        self.update_cached_data("add:session", session_id=session.id, type="add-phone")
+        self.user_qs.update(step="admin-get-api-id-hash")
 
     def _get_api_id_and_hash_base(self):
         error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
