@@ -22,7 +22,7 @@ from utils.load_env import config as CONFIG
 
 User = get_user_model()
 
-cache_account_sessions = {}
+cached_accounts = {}
 
 
 class AdminTextHandler:
@@ -265,13 +265,15 @@ class AdminStepHandler:
         session = AccountSessionService().create_session(self.text, product)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.update_cached_data("add:session", session_id=session.id, type="add-phone")
+        self.update_cached_data(
+            "add:session", session_id=session.id, session_type="add-phone"
+        )
         self.user_qs.update(step="admin-get-api-id-hash")
 
     @validators.validate_api_id_and_api_hash
     def get_api_id_and_hash(self):
         session_id = cache.get(f"{self.chat_id}:add:session")["session_id"]
-        if "دیفالت" not in self.text: # new data
+        if "دیفالت" not in self.text:
             api_id, api_hash = self.text.split("\n")
             AccountSessionService().update_session(
                 session_id, api_id=api_id, api_hash=api_hash
@@ -295,7 +297,7 @@ class AdminStepHandler:
                 return self.bot.send_message(self.chat_id, msg.text)
 
             # Cache the client object
-            cache_account_sessions[self.chat_id] = account
+            cached_accounts[self.chat_id] = account
             self.update_cached_data(
                 key="add:session", phone_code_hash=result.phone_code_hash
             )
@@ -323,7 +325,7 @@ class AdminStepHandler:
 
     @validators.validate_login_code
     def get_login_code_sms_signup(self):
-        account = cache_account_sessions[self.chat_id]
+        account = cached_accounts[self.chat_id]
         data = cache.get(f"{self.chat_id}:add:session")
         phone_code_hash = data["phone_code_hash"]
         session_id = data["session_id"]
@@ -340,7 +342,7 @@ class AdminStepHandler:
 
     @validators.validate_login_code
     def get_login_code_app_signin(self):
-        account = cache_account_sessions[self.chat_id]
+        account = cached_accounts[self.chat_id]
         data = cache.get(f"{self.chat_id}:add:session")
         phone_code_hash = data["phone_code_hash"]
         login_code = data["login_code"]
@@ -366,7 +368,7 @@ class AdminStepHandler:
         self.bot.send_message(self.chat_id, msg)
 
     def get_login_password(self):
-        account = cache_account_sessions[self.chat_id]
+        account = cached_accounts[self.chat_id]
         data = cache.get(f"{self.chat_id}:add:session")
         session_id = data["session_id"]
         password = self.text
@@ -377,7 +379,7 @@ class AdminStepHandler:
             session_loop.close()
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
             self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-            cache_account_sessions.pop(self.chat_id)
+            cached_accounts.pop(self.chat_id)
             return
 
         if action == errors.PasswordHashInvalid:
