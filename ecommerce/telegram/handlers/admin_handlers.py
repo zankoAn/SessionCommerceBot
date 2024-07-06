@@ -5,20 +5,18 @@ from datetime import timedelta
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.db.models import Case, Count, F, IntegerField, Q, Sum, Value, When
+from django.db.models import Case, Count, IntegerField, Q, Value, When
 from django.utils import timezone
 from pyrogram import errors
 from pyrogram.enums import SentCodeType
 
 from ecommerce.bot.models import BotUpdateStatus, Message
-from ecommerce.payment.models import Transaction
 from ecommerce.payment.services import TransactionService
-from ecommerce.product.models import AccountSession, Order, Product
+from ecommerce.product.models import AccountSession, Product
 from ecommerce.product.services import AccountSessionService, OrderService
 from ecommerce.telegram.account_manager import TMAccountManager
 from ecommerce.telegram.validators import Validators
 from fixtures.app_info import fake_info_list
-from utils.load_env import config as CONFIG
 
 User = get_user_model()
 
