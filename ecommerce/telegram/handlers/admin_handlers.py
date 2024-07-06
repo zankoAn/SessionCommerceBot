@@ -42,7 +42,7 @@ class AdminTextHandler:
         products = Product.objects.all()
         keys = ""
         for product in products:
-            keys += f"\n{product.name}:add-session-country-{product.country_code}:"
+            keys += f"\n{product.name}:add-session-country-{product.country_code}-{product.phone_code}:"
         msg.keys = keys.strip()
         return msg
 
@@ -423,17 +423,17 @@ class AdminCallbackHandler:
 
     def admin_choice_country(self):
         add_session_type = cache.get(f"{self.chat_id}:add:session:type")
+        country_code, phone_code = self.callback_data.split("-")[3:]
 
         self.bot.delete_message(self.chat_id, self.message_id)
 
         msg = Message.objects.get(current_step=f"admin-get-session-{add_session_type}")
+        text = msg.text.format(country_phone_code=phone_code)
         keys = self.generate_keyboards(msg)
-        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+        self.bot.send_message(self.chat_id, text, reply_markup=keys)
 
-        contry_code = self.callback_data.split("-")[-1]
         key = f"{self.chat_id}:add:session:country:code"
-        cache.set(key, contry_code)
-
+        cache.set(key, country_code)
         self.user_qs.update(step=msg.current_step)
 
     def _get_ticket_user_id(self):
