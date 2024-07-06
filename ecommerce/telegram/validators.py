@@ -103,3 +103,19 @@ class Validators:
             return func(self)
 
         return wrapper
+
+    def validate_phone_country_code(self, func):
+        def wrapper(self, product=None):
+            msg = Message.objects.get(current_step="phone-number-country-error").text
+            key = f"{self.chat_id}:add:session:country:code"
+            country_code = cache.get(key)
+            user_phone = self.text.replace(" ", "").replace("-", "").strip()
+            try:
+                product = Product.objects.get(country_code=country_code)
+                if user_phone[:2] != product.phone_code[:2]:
+                    return self.bot.send_message(self.chat_id, msg)
+                return func(self, product)
+            except Product.DoesNotExist:
+                return self.bot.send_message(self.chat_id, msg)
+
+        return wrapper
