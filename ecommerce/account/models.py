@@ -27,11 +27,20 @@ class User(AbstractUser):
 
     @property
     def calculate_total_paid(self):
-        total_paid = self.payments.filter(is_paid=True).aggregate(total=Sum("amount"))["total"] or 0
+        from ecommerce.payment.models import Transaction
+        from django.db.models import Q
+
+        total_paid = (
+            self.payments.filter(
+                Q(status=Transaction.StatusChoices.PAID)
+                & Q(status=Transaction.StatusChoices.PAID_OVER)
+            ).aggregate(total=Sum("amount_rial"))["total"]
+            or 0
+        )
         if total_paid:
             total_paid = int(total_paid) / 10
 
-        return int(total_paid)
+        return int(0)
 
     def __str__(self):
         return str(self.user_id)
