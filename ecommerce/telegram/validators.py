@@ -138,3 +138,17 @@ class Validators:
             return func(self)
 
         return wrapper
+
+    def validate_input_proxy(self, func):
+        def wrapper(self):
+            if "دیفالت" in self.text:
+                return func(self)
+
+            msg = Message.objects.get(current_step="input-format-error").text
+            proxy = self.text.split(":")
+            if len(proxy) not in (2, 4):
+                return self.bot.send_message(self.chat_id, msg)
+
+            return func(self)
+
+        return wrapper

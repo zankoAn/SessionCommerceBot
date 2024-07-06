@@ -165,8 +165,7 @@ class AdminStepHandler:
             "admin-get-session-file": self.add_session_file,
             "admin-get-session-phone": self.add_session_phone,
             "admin-get-api-id-hash": self.get_api_id_and_hash,
-            "admin-get-session-proxy-session": self.get_proxy_session,
-            "admin-get-session-proxy-login": self.get_proxy_login,
+            "admin-get-proxy": self.get_proxy,
             "admin-get-login-code": self.get_login_code,
             "admin-get-login-password": self.get_login_password,
             "admin-accept-signup-signin": self.accept_signup_or_signin,
@@ -281,60 +280,46 @@ class AdminStepHandler:
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.user_qs.update(step="admin-get-proxy")
 
-    def _get_proxy_base(self):
-        error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
-        session_id = cache.get(f"{self.chat_id}:session")["session_id"]
-        if "دیفالت" in self.text:
-            AccountSession.objects.filter(id=session_id).update(
-                proxy=CONFIG.PROXY_SOCKS
+    def _handel_send_login_code(self, session_type, session_id):
+        global session_loop
+        if session_type == "add-phone":
+            wait_msg = self.bot.send_message(self.chat_id, "⏳")
+            # Create new event loop
+            session_loop = asyncio.new_event_loop()
+            status, account, result = session_loop.run_until_complete(
+                TMAccountManager(session_id).send_login_code()
             )
-            return session_id
+            if not status:
+                self.bot.delete_message(self.chat_id, wait_msg["result"]["message_id"])
+                msg = Message.objects.get(current_step="invalid-phone-error")
+                return self.bot.send_message(self.chat_id, msg.text)
 
-        if len(self.text.split(":")) not in (2, 3):
-            return self.bot.send_message(self.chat_id, error_msg)
-
-        if "//" in self.text:
-            proxy = self.text.split("//")[1]
+            # Cache the client object
+            cache_account_sessions[self.chat_id] = account
+            self.update_cached_data(
+                key="add:session", phone_code_hash=result.phone_code_hash
+            )
+            if result.type == SentCodeType.SMS:
+                msg, keys = self.retrive_msg_and_keys("admin-get-login-code-sms")
+            else:
+                msg, keys = self.retrive_msg_and_keys("admin-get-login-code-app")
+            self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+            self.user_qs.update(step=msg.current_step)
         else:
-            proxy = self.text
+            msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
+            _, data = asyncio.run(TMAccountManager(session_id).check_session_status())
+            text = msg.text.format(status=data)
+            self.bot.send_message(self.chat_id, text, reply_markup=keys)
 
-        AccountSession.objects.filter(id=session_id).update(proxy=proxy)
-        return session_id
-
-    def get_proxy_session(self):
-        session_id = self._get_proxy_base()
-        msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
-        status, data, err = asyncio.run(
-            TMAccountManager(session_id).check_session_status()
-        )
-        text = msg.text.format(status=data)
-        self.bot.send_message(self.chat_id, text, reply_markup=keys)
         self.user_qs.update(step=msg.current_step)
 
-    def get_proxy_login(self):
-        global my_loop
-        session_id = self._get_proxy_base()
-        wait_msg = self.bot.send_message(self.chat_id, "⏳")
-        # Create new event loop
-        my_loop = asyncio.new_event_loop()
-        status, account, result = my_loop.run_until_complete(
-            TMAccountManager(session_id).send_login_code()
-        )
-        if not status:
-            self.bot.delete_message(self.chat_id, wait_msg["result"]["message_id"])
-            msg = Message.objects.filter(current_step="invalid-phone-error").first()
-            return self.bot.send_message(self.chat_id, msg.text)
-
-        # Cache the client object
-        cache_account_sessions[self.chat_id] = account
-        self.update_cached_data(
-            key="session",
-            phone_code_hash=result.phone_code_hash,
-            login_code_type=result.type,
-        )
-        msg, keys = self.retrive_msg_and_keys("admin-get-login-code")
-        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.user_qs.update(step=msg.current_step)
+    @validators.validate_input_proxy
+    def get_proxy(self):
+        session_data = cache.get(f"{self.chat_id}:add:session")
+        session_id = session_data["session_id"]
+        if "دیفالت" not in self.text:
+            AccountSessionService().update_session(session_id, proxy=self.text)
+        self._handel_send_login_code()
 
     def get_login_code(self):
         login_code = self.text.strip()
@@ -402,7 +387,6 @@ class AdminStepHandler:
         self.bot.copy_message(user_id, self.chat_id, self.message_id)
         msg = Message.objects.get(current_step="admin-respond-success-ticket")
         self.bot.send_message(self.chat_id, msg.text)
-
 
     def handler(self):
         if callback := self.steps.get(self.user_obj.step):
