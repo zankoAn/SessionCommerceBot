@@ -1,3 +1,5 @@
+from django.core.cache import cache
+
 from ecommerce.bot.models import Message
 from ecommerce.product.models import AccountSession, Product
 
@@ -117,5 +119,22 @@ class Validators:
                 return func(self, product)
             except Product.DoesNotExist:
                 return self.bot.send_message(self.chat_id, msg)
+
+        return wrapper
+
+    def validate_api_id_and_api_hash(self, func):
+        def wrapper(self):
+            if "دیفالت" in self.text:
+                return func(self)
+
+            msg = Message.objects.get(current_step="input-format-error").text
+            apis = self.text.split("\n")
+            if len(apis) != 2:
+                return self.bot.send_message(self.chat_id, msg)
+            try:
+                int(apis[0])
+            except Exception:
+                return self.bot.send_message(self.chat_id, msg)
+            return func(self)
 
         return wrapper

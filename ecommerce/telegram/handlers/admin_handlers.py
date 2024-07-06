@@ -164,8 +164,7 @@ class AdminStepHandler:
             "admin-get-session-string": self.add_session_string,
             "admin-get-session-file": self.add_session_file,
             "admin-get-session-phone": self.add_session_phone,
-            "admin-get-api-id-hash-session": self.get_api_id_and_hash_session,
-            "admin-get-api-id-hash-login": self.get_api_id_and_hash_login,
+            "admin-get-api-id-hash": self.get_api_id_and_hash,
             "admin-get-session-proxy-session": self.get_proxy_session,
             "admin-get-session-proxy-login": self.get_proxy_login,
             "admin-get-login-code": self.get_login_code,
@@ -270,39 +269,17 @@ class AdminStepHandler:
         self.update_cached_data("add:session", session_id=session.id, type="add-phone")
         self.user_qs.update(step="admin-get-api-id-hash")
 
-    def _get_api_id_and_hash_base(self):
-        error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
-        msg, keys = self.retrive_msg_and_keys("admin-get-session-proxy")
-        session_id = cache.get(f"{self.chat_id}:session")["session_id"]
-        if "دیفالت" in self.text:
-            AccountSession.objects.filter(id=session_id).update(
-                api_id=CONFIG.API_ID, api_hash=CONFIG.API_HASH
+    @validators.validate_api_id_and_api_hash
+    def get_api_id_and_hash(self):
+        session_id = cache.get(f"{self.chat_id}:add:session")["session_id"]
+        if "دیفالت" not in self.text: # new data
+            api_id, api_hash = self.text.split("\n")
+            AccountSessionService().update_session(
+                session_id, api_id=api_id, api_hash=api_hash
             )
-            return self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-
-        # Validate data
-        if not 1 < len(self.text.split("\n")) < 3:
-            return self.bot.send_message(self.chat_id, error_msg)
-
-        api_id, api_hash = self.text.split("\n")
-        # Validate api_id
-        try:
-            int(api_id)
-        except Exception:
-            return self.bot.send_message(self.chat_id, error_msg)
-
-        AccountSession.objects.filter(id=session_id).update(
-            api_id=api_id, api_hash=api_hash
-        )
+        msg, keys = self.retrive_msg_and_keys("admin-get-proxy")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-
-    def get_api_id_and_hash_session(self):
-        self._get_api_id_and_hash_base()
-        self.user_qs.update(step="admin-get-session-proxy-session")
-
-    def get_api_id_and_hash_login(self):
-        self._get_api_id_and_hash_base()
-        self.user_qs.update(step="admin-get-session-proxy-login")
+        self.user_qs.update(step="admin-get-proxy")
 
     def _get_proxy_base(self):
         error_msg = "❌ فرمت دیتای ارسال شده درست نیست ❌"
