@@ -319,9 +319,10 @@ class AdminStepHandler:
     def get_proxy(self):
         session_data = cache.get(f"{self.chat_id}:add:session")
         session_id = session_data["session_id"]
+        session_type = session_data["type"]
         if "دیفالت" not in self.text:
             AccountSessionService().update_session(session_id, proxy=self.text)
-        self._handel_send_login_code()
+        self._handel_send_login_code(session_type, session_id)
 
     @validators.validate_login_code
     def get_login_code_sms_signup(self):
@@ -345,7 +346,7 @@ class AdminStepHandler:
         account = cached_accounts[self.chat_id]
         data = cache.get(f"{self.chat_id}:add:session")
         phone_code_hash = data["phone_code_hash"]
-        login_code = data["login_code"]
+        login_code = self.text
         session_id = data["session_id"]
         status, msg, action = session_loop.run_until_complete(
             TMAccountManager(session_id).sign_in_account(
