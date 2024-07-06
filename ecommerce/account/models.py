@@ -22,11 +22,6 @@ class User(AbstractUser):
         default=10000,
         verbose_name=_("balance")
     )
-    is_premium = models.BooleanField(
-        default=False,
-        verbose_name=_("Premium Status")
-    )
-
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = ["user_id"]
 
