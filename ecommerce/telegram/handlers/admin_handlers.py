@@ -325,6 +325,7 @@ class AdminStepHandler:
         self._handel_send_login_code(session_type, session_id)
 
     @validators.validate_login_code
+    @validators.validate_cached_account_exists(cached_accounts)
     def get_login_code_sms_signup(self):
         account = cached_accounts[self.chat_id]
         data = cache.get(f"{self.chat_id}:add:session")
@@ -342,6 +343,7 @@ class AdminStepHandler:
         self.bot.send_message(self.chat_id, msg)
 
     @validators.validate_login_code
+    @validators.validate_cached_account_exists(cached_accounts)
     def get_login_code_app_signin(self):
         account = cached_accounts[self.chat_id]
         data = cache.get(f"{self.chat_id}:add:session")
@@ -368,6 +370,7 @@ class AdminStepHandler:
 
         self.bot.send_message(self.chat_id, msg)
 
+    @validators.validate_cached_account_exists(cached_accounts)
     def get_login_password(self):
         account = cached_accounts[self.chat_id]
         data = cache.get(f"{self.chat_id}:add:session")

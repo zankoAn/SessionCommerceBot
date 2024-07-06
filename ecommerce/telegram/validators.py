@@ -169,3 +169,18 @@ class Validators:
             return func(self)
 
         return wrapper
+
+    @staticmethod
+    def validate_cached_account_exists(cached_accounts):
+        def decorator(func):
+            def wrapper(self):
+                if not cached_accounts.get(self.chat_id):
+                    msg, keys = self.retrive_msg_and_keys("admin_back_to_add_session")
+                    self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+                    self.user_qs.update(step="admin-home")
+                    return
+                return func(self)
+
+            return wrapper
+
+        return decorator
