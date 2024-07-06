@@ -409,6 +409,7 @@ class AdminCallbackHandler:
             "unblock_user": self.unblock_user_ticket,
             "enable_bot": self.change_bot_status,
             "update_bot": self.change_bot_status,
+            "add-session-country-": self.admin_choice_country,
         }
 
     def __getattr__(self, name):
@@ -419,6 +420,21 @@ class AdminCallbackHandler:
         raise AttributeError(
             f"'{self.__class__.__name__}' object has no attribute '{name}'"
         )
+
+    def admin_choice_country(self):
+        add_session_type = cache.get(f"{self.chat_id}:add:session:type")
+
+        self.bot.delete_message(self.chat_id, self.message_id)
+
+        msg = Message.objects.get(current_step=f"admin-get-session-{add_session_type}")
+        keys = self.generate_keyboards(msg)
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+
+        contry_code = self.callback_data.split("-")[-1]
+        key = f"{self.chat_id}:add:session:country:code"
+        cache.set(key, contry_code)
+
+        self.user_qs.update(step=msg.current_step)
 
     def _get_ticket_user_id(self):
         pattern = "user.+(\d+)\n"
