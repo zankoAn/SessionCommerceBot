@@ -1,6 +1,12 @@
-from ecommerce.product.models import Product, Order, AccountSession
+import random
 import traceback
+
 from django.db import transaction
+from django.db.models import Q
+
+from ecommerce.product.models import AccountSession, Order, Product
+from fixtures.app_info import fake_info_list
+from utils.load_env import config as CONFIG
 
 
 class OrderService:
@@ -35,6 +41,15 @@ class OrderService:
             return False
 
         return order
+
+    def get_total_cnt_user_order(self, user: int):
+        return Order.objects.filter(user=user).count()
+
+    def get_success_order_count(self):
+        order_count = Order.objects.filter(
+            Q(status=Order.StatusChoices.down) & Q(status=Order.StatusChoices.waiting)
+        ).count()
+        return order_count
 
 
 class ProductService:
@@ -75,3 +90,33 @@ class AccountSessionService:
         if not session:
             return False
         return session
+
+    def get_active_session_count(self):
+        active_session_count = AccountSession.objects.filter(
+            Q(status=AccountSession.StatusChoices.disable)
+            & Q(status=AccountSession.StatusChoices.purchased)
+        ).count()
+        return active_session_count
+
+    def get_deactive_session_count(self):
+        active_session_count = AccountSession.objects.filter(
+            status=AccountSession.StatusChoices.active
+        ).count()
+        return active_session_count
+
+    def create_session(self, phone, product) -> AccountSession:
+        random_info = random.choice(fake_info_list)
+        session, _ = AccountSession.objects.get_or_create(
+            phone=phone,
+            product=product,
+            app_version=random_info["app_version"],
+            device_model=random_info["device_model"],
+            system_version=random_info["system_version"],
+            proxy=CONFIG.PROXY_SOCKS,
+            api_id=CONFIG.API_ID,
+            api_hash=CONFIG.API_HASH,
+        )
+        return session
+
+    def update_session(self, session_id, **kwargs) -> None:
+        AccountSession.objects.filter(id=session_id).update(**kwargs)
