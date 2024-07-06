@@ -468,3 +468,7 @@ class AdminCallbackHandler:
         if callback_data in self.callback_handlers:
             self.callback_handlers[callback_data]()
             return
+
+        for key in self.callback_handlers.keys():
+            if callback_data.startswith(key):
+                self.callback_handlers.get(key)()
