@@ -365,6 +365,28 @@ class AdminStepHandler:
 
         self.bot.send_message(self.chat_id, msg)
 
+    def get_login_password(self):
+        account = cache_account_sessions[self.chat_id]
+        data = cache.get(f"{self.chat_id}:add:session")
+        session_id = data["session_id"]
+        password = self.text
+        status, msg, action = session_loop.run_until_complete(
+            TMAccountManager(session_id).confirm_password(account, password)
+        )
+        if status:
+            session_loop.close()
+            msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
+            self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+            cache_account_sessions.pop(self.chat_id)
+            return
+
+        if action == errors.PasswordHashInvalid:
+            msg_obj, keys = self.retrive_msg_and_keys("admin-get-login-password")
+            self.bot.send_message(self.chat_id, msg_obj.text.format(hint=msg))
+            return
+
+        self.bot.send_message(self.chat_id, msg)
+
     def respond_to_ticket(self):
         user_id = self.reply_to_msg["text"].split("\n")[0].split(":")[1].strip()
         self.bot.copy_message(user_id, self.chat_id, self.message_id)
