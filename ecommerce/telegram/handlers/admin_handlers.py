@@ -166,9 +166,9 @@ class AdminStepHandler:
             "admin-get-session-phone": self.add_session_phone,
             "admin-get-api-id-hash": self.get_api_id_and_hash,
             "admin-get-proxy": self.get_proxy,
-            "admin-get-login-code": self.get_login_code,
+            "admin-get-login-code-app": self.get_login_code_app_signin,
+            "admin-get-login-code-sms": self.get_login_code_sms_signup,
             "admin-get-login-password": self.get_login_password,
-            "admin-accept-signup-signin": self.accept_signup_or_signin,
         }
 
     def __getattr__(self, name):
@@ -321,57 +321,40 @@ class AdminStepHandler:
             AccountSessionService().update_session(session_id, proxy=self.text)
         self._handel_send_login_code()
 
-    def get_login_code(self):
-        login_code = self.text.strip()
-        msg_obj, keys = self.retrive_msg_and_keys("admin-accept-signup-signin")
-        self.bot.send_message(self.chat_id, msg_obj.text, reply_markup=keys)
-        self.update_cached_data(key="session", login_code=login_code)
-        self.user_qs.update(step=msg_obj.current_step)
-
-    def get_login_password(self):
+    @validators.validate_login_code
+    def get_login_code_sms_signup(self):
         account = cache_account_sessions[self.chat_id]
-        data = cache.get(f"{self.chat_id}:session")
-        session_id = data["session_id"]
-        password = self.text
-        status, msg, action = my_loop.run_until_complete(
-            TMAccountManager(session_id).confirm_password(account, password)
-        )
-        if status:
-            my_loop.close()
-            msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
-            self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-            cache_account_sessions.pop(self.chat_id)
-            return
-
-        if action == errors.PasswordHashInvalid:
-            msg_obj, keys = self.retrive_msg_and_keys("admin-get-login-password")
-            self.bot.send_message(self.chat_id, msg_obj.text.format(hint=msg))
-            return
-
-        self.bot.send_message(self.chat_id, msg)
-
-    def accept_signup_or_signin(self):
-        account = cache_account_sessions[self.chat_id]
-        data = cache.get(f"{self.chat_id}:session")
+        data = cache.get(f"{self.chat_id}:add:session")
         phone_code_hash = data["phone_code_hash"]
-        login_code_type = data["login_code_type"]
-        login_code = data["login_code"]
         session_id = data["session_id"]
-
-        if login_code_type == SentCodeType.SMS:
-            status, msg, action = my_loop.run_until_complete(
-                TMAccountManager(session_id).sign_up_account(account, phone_code_hash)
-            )
-        else:
-            status, msg, action = my_loop.run_until_complete(
-                TMAccountManager(session_id).sign_in_account(
-                    account, phone_code_hash, login_code
-                )
-            )
+        status, msg, _ = session_loop.run_until_complete(
+            TMAccountManager(session_id).sign_up_account(account, phone_code_hash)
+        )
         if status:
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
             self.user_qs.update(step="admin-add-session")
             self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+            return
+
+        self.bot.send_message(self.chat_id, msg)
+
+    @validators.validate_login_code
+    def get_login_code_app_signin(self):
+        account = cache_account_sessions[self.chat_id]
+        data = cache.get(f"{self.chat_id}:add:session")
+        phone_code_hash = data["phone_code_hash"]
+        login_code = data["login_code"]
+        session_id = data["session_id"]
+        status, msg, action = session_loop.run_until_complete(
+            TMAccountManager(session_id).sign_in_account(
+                account, phone_code_hash, login_code
+            )
+        )
+        if status:
+            msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
+            self.user_qs.update(step="admin-add-session")
+            self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+            session_loop.close()
             return
 
         if action == errors.SessionPasswordNeeded:

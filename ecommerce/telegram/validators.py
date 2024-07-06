@@ -152,3 +152,20 @@ class Validators:
             return func(self)
 
         return wrapper
+
+    def validate_login_code(self, func):
+        def wrapper(self):
+            error = False
+            if len(self.text.strip()) != 5:
+                error = True
+            try:
+                int(self.text)
+            except ValueError:
+                error = True
+
+            if error:
+                msg = Message.objects.get(current_step="input-format-error").text
+                return self.bot.send_message(self.chat_id, msg)
+            return func(self)
+
+        return wrapper
