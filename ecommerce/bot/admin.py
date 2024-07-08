@@ -29,6 +29,7 @@ class MsgKeyFilter(admin.SimpleListFilter):
             ("key", _("Normal keyboard")),
             ("inline", _("Inline keyboard")),
             ("msg", _("Normal Msg")),
+            ("error", _("Error Msg")),
         )
 
     def queryset(self, request, queryset):
@@ -39,6 +40,8 @@ class MsgKeyFilter(admin.SimpleListFilter):
             return queryset.filter(is_inline_keyboard=True)
         if filterd_value == "msg":
             return queryset.filter(key__isnull=True).filter(is_inline_keyboard=False)
+        if filterd_value == "error":
+            return queryset.filter(key__isnull=True).filter(current_step__endswith="error")
         else:
             return queryset.all()
 
