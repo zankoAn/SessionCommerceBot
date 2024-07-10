@@ -1,8 +1,12 @@
 import asyncio
-import random
+import io
+import os
 import re
+import shutil
+import zipfile
 from datetime import timedelta
 
+import rarfile
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
 from django.db.models import Case, Count, IntegerField, Q, Value, When
@@ -15,11 +19,11 @@ from ecommerce.payment.services import TransactionService
 from ecommerce.product.models import AccountSession, Product
 from ecommerce.product.services import AccountSessionService, OrderService
 from ecommerce.telegram.account_manager import (
+    SignInSignUpSessionManager,
+    TdataSessionManager,
     TMAccountManager,
-    SignInSignUpSessionManager
 )
 from ecommerce.telegram.validators import Validators
-from fixtures.app_info import fake_info_list
 
 User = get_user_model()
 
@@ -233,35 +237,77 @@ class AdminStepHandler:
         self.update_cached_data("add:session", session_id=session.id, type="add-string")
         self.user_qs.update(step="admin-get-api-id-hash")
 
-    def add_session_file(self):
-        error_msg = "Bad format"
-        if not self.file_id:
-            return self.bot.send_message(self.chat_id, error_msg)
+    def download_archive_session_file(self, content):
+        bytes_io = io.BytesIO(content)
+        session_string = None
+
+        if "rar" in self.file_mime_type:
+            archive_type = rarfile.RarFile
+        else:
+            archive_type = zipfile.ZipFile
+
+        with archive_type(bytes_io, "r") as rf:
+            files = rf.namelist()
+            if not any(map(lambda file: "tdata" in file, files)):
+                return False, False
+
+            extract_output_path = "ecommerce/bot/sessions/"
+            rf.extractall(path=extract_output_path)
+            try:
+                session_name = files[-1].strip("/")
+                tdata_path = files[-2]
+                table_status, session_string, phone = asyncio.run(
+                    TdataSessionManager().run(tdata_path, session_name)
+                )
+                self.bot.send_message(self.chat_id, table_status)
+            except Exception as error:
+                print(error)
+                shutil.rmtree(f"{extract_output_path}/{session_name}")
+                return False, False
+            finally:
+                shutil.rmtree(f"{extract_output_path}/{session_name}")
+
+        return session_string, phone
+
+    def download_normal_session_file(self, content):
+        download_path = f"ecommerce/bot/sessions/{self.file_name}"
+        with open(download_path, "wb") as of:
+            of.write(content)
+
+        session_string, phone = asyncio.run(
+            TMAccountManager().extract_session_string(download_path)
+        )
+        if not session_string:
+            os.rmdir(download_path)
+
+        return session_string, phone
 
     @validators.validate_file_format
     def add_session_file(self):
         content = self.bot.download_file(self.file_id)
-        with open("/tmp/session_file.session", "wb") as session_file:
-            session_file.write(content)
+        if "rar" in self.file_mime_type or "zip" in self.file_mime_type:
+            session_string, phone = self.download_archive_session_file(content)
+        else:
+            session_string, phone = self.download_normal_session_file(content)
 
-        session_string = asyncio.run(TMAccountManager().extract_session_string())
         if not session_string:
-            return self.bot.send_message(self.chat_id, error_msg)
+            msg = Message.objects.get(current_step="general-format-error").text
+            return self.bot.send_message(self.chat_id, msg)
 
-        phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
-        product = Product.objects.get(phone_code=phone_code)
-        random_info = random.choice(fake_info_list)
-        session, _ = AccountSession.objects.get_or_create(
-            session_string=session_string,
+        key = f"{self.chat_id}:add:session:country:code"
+        country_code = cache.get(key)
+        product = Product.objects.get(country_code=country_code)
+        # TODO: Use session metatdata insted random
+        session = AccountSessionService().create_session(
+            phone=phone,
             product=product,
-            app_version=random_info["app_version"],
-            device_model=random_info["device_model"],
-            system_version=random_info["system_version"],
+            session_string=session_string,
+            status=AccountSession.StatusChoices.active,
         )
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
-        self.update_cached_data(key="session", session_id=session.id)
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.user_qs.update(step="admin-get-api-id-hash-session")
+        self.update_cached_data("add:session", session_id=session.id, type="add-file")
+        self.user_qs.update(step="admin-get-api-id-hash")
 
     @validators.validate_phone_number
     @validators.validate_phone_country_code

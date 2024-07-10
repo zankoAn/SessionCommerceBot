@@ -3,8 +3,12 @@ import re
 import traceback
 from pathlib import Path
 
+from opentele.api import UseCurrentSession
+from opentele.td import TDesktop
+from opentele.tl import TelegramClient
 from pyrogram import Client, errors
 from pyrogram.types import TermsOfService
+from telethon.sessions import StringSession
 
 from ecommerce.product.models import AccountSession
 from fixtures.names import fake_names
@@ -365,3 +369,78 @@ class SignInSignUpSessionManager:
             session_obj.password = password
         await session_obj.asave()
 
+
+class TdataSessionManager:
+    session_dir_path = BASE_DIR / Path("bot/sessions")
+
+    def _get_proxy(self):
+        if proxy := CONFIG.PROXY_SOCKS:
+            host, port = proxy.split(":")
+            return ("socks5", host, int(port))
+
+    async def convert_tdata(self, path, file_name):
+        """Convert TDesktop data to a Telethon session."""
+        tdesk = TDesktop(f"{self.session_dir_path}/{path}")
+        if not tdesk.isLoaded():
+            raise ValueError("TDesktop data could not be loaded")
+
+        acount = await tdesk.ToTelethon(
+            session=f"{self.session_dir_path}/{file_name}.session",
+            flag=UseCurrentSession,
+        )
+        return acount
+
+    async def check_session_status(self, client: TelegramClient):
+        """Check the status of the session."""
+        try:
+            sessions = await client.GetSessions()
+            status_table = ""
+            for session in sessions.authorizations:
+                status_table += f"""<code>\
+                    \nIs Connected: ✅\
+                    \nDevice: {session.device_model}\
+                    \nPlatform: {session.platform}\
+                    \nSystem: {session.system_version}\
+                    \nAPI_ID: {session.api_id}\
+                    \nApp name: {session.app_name}, {session.app_version}\
+                    \nOfficial App: {"✔" if session.official_app else "✖"}\
+                    \n----------------------------
+                </code>"""
+            return status_table
+        except Exception:
+            error_msg = traceback.format_exc().strip()
+            print(error_msg)
+            return False
+
+    async def get_phone_number(self, client: TelegramClient):
+        """Retrieve the phone number associated with the session."""
+        me = await client.get_entity("me")
+        return me.phone
+
+    def extract_session_string(self, client: TelegramClient):
+        """Extract the session string from the Telethon client."""
+        session_string = StringSession.save(client.session)
+        return session_string
+
+    async def run(self, path, file_name):
+        """Convert TDesktop data to a Telethon session, check session status, and
+         export session details.
+        Args:
+            path (str): tadata directory path( test/tdata )
+            file_name (str): the output file name for converted session
+        """
+        client = await self.convert_tdata(path, file_name)
+        proxy = self._get_proxy()
+        if proxy:
+            client.set_proxy(proxy)
+
+        await client.connect()
+        status_table = await self.check_session_status(client)
+        if status_table:
+            phone_number = await self.get_phone_number(client)
+            session_string = self.extract_session_string(client)
+            await client.disconnect()
+            return status_table, session_string, phone_number
+        else:
+            await client.disconnect()
+            return None, None, None
