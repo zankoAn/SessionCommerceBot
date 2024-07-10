@@ -214,24 +214,24 @@ class AdminStepHandler:
 
     @validators.validate_session_string_format
     def add_session_string(self):
-        error_msg = "Bad format"
-        if len(self.text) < 60:
-            return self.bot.send_message(self.chat_id, error_msg)
-
-        phone_code = cache.get(f"{self.chat_id}:add-session-phone-code")
-        product = Product.objects.get(phone_code=phone_code)
-        random_info = random.choice(fake_info_list)
-        session, _ = AccountSession.objects.get_or_create(
-            session_string=self.text,
-            product=product,
-            app_version=random_info["app_version"],
-            device_model=random_info["device_model"],
-            system_version=random_info["system_version"],
+        key = f"{self.chat_id}:add:session:country:code"
+        country_code = cache.get(key)
+        product = Product.objects.get(country_code=country_code)
+        session = AccountSessionService().create_session(
+            phone="", product=product, session_string=self.text
         )
+        status, phone_number = asyncio.run(
+            TMAccountManager(session.id).check_session_status()
+        )
+        if not status:
+            msg = Message.objects.get(current_step="general-format-error").text
+            return self.bot.send_message(self.chat_id, msg)
+
+        AccountSessionService().update_session(session.id, phone=phone_number)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.update_cached_data(key="session", session_id=session.id)
-        self.user_qs.update(step="admin-get-api-id-hash-session")
+        self.update_cached_data("add:session", session_id=session.id, type="add-string")
+        self.user_qs.update(step="admin-get-api-id-hash")
 
     def add_session_file(self):
         error_msg = "Bad format"
