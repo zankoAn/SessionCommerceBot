@@ -342,7 +342,7 @@ class UserCallbackHandler(UserTextHandler):
         keys = self.generate_keyboards(msg)
         self.bot.send_message(
             self.chat_id,
-            msg.text.format(code=str(data), password=session.password),
+            msg.text.format(code=code, password=session.password),
             reply_markup=keys,
         )
         self.bot.send_answer_callback_query(self.callback_query_id, "✅")
