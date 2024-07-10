@@ -107,7 +107,7 @@ class AccountSessionService:
         ).count()
         return active_session_count
 
-    def create_session(self, phone, product) -> AccountSession:
+    def create_session(self, phone, product, **kwargs) -> AccountSession:
         random_info = random.choice(fake_info_list)
         session, _ = AccountSession.objects.get_or_create(
             phone=phone,
@@ -118,6 +118,7 @@ class AccountSessionService:
             proxy=CONFIG.PROXY_SOCKS,
             api_id=CONFIG.API_ID,
             api_hash=CONFIG.API_HASH,
+            **kwargs
         )
         return session
 
