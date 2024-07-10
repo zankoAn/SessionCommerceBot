@@ -107,7 +107,7 @@ class Validators:
         return wrapper
 
     def validate_phone_country_code(self, func):
-        def wrapper(self, product=None):
+        def wrapper(self, product=None) -> Product:
             msg = Message.objects.get(current_step="phone-number-country-error").text
             key = f"{self.chat_id}:add:session:country:code"
             country_code = cache.get(key)
@@ -127,7 +127,7 @@ class Validators:
             if "دیفالت" in self.text:
                 return func(self)
 
-            msg = Message.objects.get(current_step="input-format-error").text
+            msg = Message.objects.get(current_step="input-apis-format-error").text
             apis = self.text.split("\n")
             if len(apis) != 2:
                 return self.bot.send_message(self.chat_id, msg)
@@ -144,7 +144,7 @@ class Validators:
             if "دیفالت" in self.text:
                 return func(self)
 
-            msg = Message.objects.get(current_step="input-format-error").text
+            msg = Message.objects.get(current_step="general-format-error").text
             proxy = self.text.split(":")
             if len(proxy) not in (2, 4):
                 return self.bot.send_message(self.chat_id, msg)
@@ -164,7 +164,7 @@ class Validators:
                 error = True
 
             if error:
-                msg = Message.objects.get(current_step="input-format-error").text
+                msg = Message.objects.get(current_step="general-format-error").text
                 return self.bot.send_message(self.chat_id, msg)
             return func(self)
 
