@@ -10,32 +10,20 @@ from utils.load_env import config as CONFIG
 
 
 class OrderService:
-    def update_session_status(self, session, new_status):
-        status = {
-            "wait": AccountSession.StatusChoices.wait,
-            "active": AccountSession.StatusChoices.active,
-            "disable": AccountSession.StatusChoices.disable,
-            "limit": AccountSession.StatusChoices.limit,
-            "purchased": AccountSession.StatusChoices.purchased,
-            "unknown": AccountSession.StatusChoices.unknown,
-        }
-        session.status = status.get(new_status)
-        session.save(update_fields=["status"])
-
     def create_order(self, session, user_obj):
         """Update session status and create order,
         also update the user balance
         """
         try:
             with transaction.atomic():
-                self.update_session_status(session, "purchased")
+                AccountSessionService().update_session_status(session, "purchased")
                 order = Order.objects.create(
                     user=user_obj, session=session, price=session.product.price
                 )
                 user_obj.balance -= session.product.price
                 user_obj.save()
         except Exception:
-            self.update_session_status(session, "disable")
+            AccountSessionService().update_session_status(session, "disable")
             msg = traceback.format_exc().strip()
             print(msg)
             return False
@@ -61,6 +49,18 @@ class ProductService:
 
 
 class AccountSessionService:
+    def update_session_status(self, session, new_status):
+        status = {
+            "wait": AccountSession.StatusChoices.wait,
+            "active": AccountSession.StatusChoices.active,
+            "disable": AccountSession.StatusChoices.disable,
+            "limit": AccountSession.StatusChoices.limit,
+            "purchased": AccountSession.StatusChoices.purchased,
+            "unknown": AccountSession.StatusChoices.unknown,
+        }
+        session.status = status.get(new_status)
+        session.save(update_fields=["status"])
+
     def get_random_session(self, country_code):
         try:
             session = (
