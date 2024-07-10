@@ -358,9 +358,7 @@ class AdminStepHandler:
             self.user_qs.update(step=msg.current_step)
         else:
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
-            _, data = asyncio.run(TMAccountManager(session_id).check_session_status())
-            text = msg.text.format(status=data)
-            self.bot.send_message(self.chat_id, text, reply_markup=keys)
+            self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
 
         self.user_qs.update(step=msg.current_step)
 
