@@ -39,6 +39,9 @@ class OrderService:
         ).count()
         return order_count
 
+    def update_order(self, order_id, **kwargs) -> None:
+        Order.objects.filter(id=order_id).update(**kwargs)
+
 
 class ProductService:
     def get_active_countries(self):
