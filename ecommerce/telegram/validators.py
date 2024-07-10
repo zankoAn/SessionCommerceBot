@@ -184,3 +184,29 @@ class Validators:
             return wrapper
 
         return decorator
+
+    def validate_file_format(self, func):
+        def wrapper(self):
+            if (
+                self.file_id
+                and self.file_size > 1
+                and (
+                    "rar" in self.file_mime_type
+                    or "zip" in self.file_mime_type
+                    or self.file_name.endswith(".session")
+                )
+            ):
+                return func(self)
+            else:
+                msg = Message.objects.get(current_step="general-format-error").text
+                return self.bot.send_message(self.chat_id, msg)
+
+        return wrapper
+
+    def validate_session_string_format(self, func):
+        def wrapper(self):
+            msg = Message.objects.get(current_step="general-format-error").text
+            if len(self.text) < 300:
+                return self.bot.send_message(self.chat_id, msg)
+            return func(self)
+        return wrapper

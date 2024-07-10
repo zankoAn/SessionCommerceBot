@@ -212,6 +212,7 @@ class AdminStepHandler:
             text_msg = "❌ User not found"
         self.bot.send_message(self.chat_id, text_msg)
 
+    @validators.validate_session_string_format
     def add_session_string(self):
         error_msg = "Bad format"
         if len(self.text) < 60:
@@ -237,6 +238,8 @@ class AdminStepHandler:
         if not self.file_id:
             return self.bot.send_message(self.chat_id, error_msg)
 
+    @validators.validate_file_format
+    def add_session_file(self):
         content = self.bot.download_file(self.file_id)
         with open("/tmp/session_file.session", "wb") as session_file:
             session_file.write(content)
@@ -260,8 +263,8 @@ class AdminStepHandler:
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
         self.user_qs.update(step="admin-get-api-id-hash-session")
 
-    @validators.validate_phone_country_code
     @validators.validate_phone_number
+    @validators.validate_phone_country_code
     def add_session_phone(self, product=None):
         session = AccountSessionService().create_session(self.text, product)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
