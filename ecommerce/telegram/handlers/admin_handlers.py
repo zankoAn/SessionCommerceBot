@@ -266,12 +266,11 @@ class AdminStepHandler:
     @validators.validate_phone_number
     @validators.validate_phone_country_code
     def add_session_phone(self, product=None):
-        session = AccountSessionService().create_session(self.text, product)
+        phone = self.text.strip()
+        session = AccountSessionService().create_session(phone, product)
         msg, keys = self.retrive_msg_and_keys("admin-get-api-id-hash")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
-        self.update_cached_data(
-            "add:session", session_id=session.id, session_type="add-phone"
-        )
+        self.update_cached_data("add:session", session_id=session.id, type="add-phone")
         self.user_qs.update(step="admin-get-api-id-hash")
 
     @validators.validate_api_id_and_api_hash
