@@ -14,7 +14,10 @@ from ecommerce.bot.models import BotUpdateStatus, Message
 from ecommerce.payment.services import TransactionService
 from ecommerce.product.models import AccountSession, Product
 from ecommerce.product.services import AccountSessionService, OrderService
-from ecommerce.telegram.account_manager import TMAccountManager
+from ecommerce.telegram.account_manager import (
+    TMAccountManager,
+    SignInSignUpSessionManager
+)
 from ecommerce.telegram.validators import Validators
 from fixtures.app_info import fake_info_list
 
@@ -287,7 +290,7 @@ class AdminStepHandler:
             # Create new event loop
             session_loop = asyncio.new_event_loop()
             status, account, result = session_loop.run_until_complete(
-                TMAccountManager(session_id).send_login_code()
+                SignInSignUpSessionManager(session_id).send_login_code()
             )
             if not status:
                 self.bot.delete_message(self.chat_id, wait_msg["result"]["message_id"])
@@ -330,7 +333,9 @@ class AdminStepHandler:
         phone_code_hash = data["phone_code_hash"]
         session_id = data["session_id"]
         status, msg, _ = session_loop.run_until_complete(
-            TMAccountManager(session_id).sign_up_account(account, phone_code_hash)
+            SignInSignUpSessionManager(session_id).sign_up_account(
+                account, phone_code_hash
+            )
         )
         if status:
             msg, keys = self.retrive_msg_and_keys("admin-add-session-success")
@@ -349,7 +354,7 @@ class AdminStepHandler:
         login_code = self.text
         session_id = data["session_id"]
         status, msg, action = session_loop.run_until_complete(
-            TMAccountManager(session_id).sign_in_account(
+            SignInSignUpSessionManager(session_id).sign_in_account(
                 account, phone_code_hash, login_code
             )
         )
@@ -375,7 +380,7 @@ class AdminStepHandler:
         session_id = data["session_id"]
         password = self.text
         status, msg, action = session_loop.run_until_complete(
-            TMAccountManager(session_id).confirm_password(account, password)
+            SignInSignUpSessionManager(session_id).confirm_password(account, password)
         )
         if status:
             session_loop.close()
