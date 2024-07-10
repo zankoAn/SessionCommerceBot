@@ -282,10 +282,10 @@ class UserCallbackHandler(UserTextHandler):
         if not session:
             return self.back_to_show_countrys()
 
-        connect, _ = asyncio.run(
+        status, _ = asyncio.run(
             TMAccountManager(session_id=session.id).check_session_status()
         )
-        if not connect:
+        if not status:
             self.bot.send_answer_callback_query(
                 self.callback_query_id, "❌ Session Problem"
             )
@@ -328,17 +328,16 @@ class UserCallbackHandler(UserTextHandler):
             return self.bot.send_answer_callback_query(
                 self.callback_query_id, "❌ شماره یافت نشد ❌"
             )
-
-        status, data, err = asyncio.run(TMAccountManager().retrive_login_code(phone))
-        if not status:
+        code = asyncio.run(
+            TMAccountManager(session.id).retrieve_login_code(phone)
+        )
+        if not code:
             return self.bot.send_answer_callback_query(
                 self.callback_query_id, "❌ کد یافت نشد ❌"
             )
 
         # Store login code
-        session.order.login_code = data
-        session.order.save(update_fields=["login_code"])
-
+        OrderService().update_order(session.order.id, login_code=code)
         msg.keys = msg.keys.format(phone=phone)
         keys = self.generate_keyboards(msg)
         self.bot.send_message(
