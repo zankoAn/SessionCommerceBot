@@ -441,7 +441,7 @@ class AdminCallbackHandler:
         self.user_qs.update(step=msg.current_step)
 
     def _get_ticket_user_id(self):
-        pattern = "user.+(\d+)\n"
+        pattern = r"user.+(\d+)\n"
         user_id = re.findall(pattern, self.text.lower())
         return user_id[0]
 
