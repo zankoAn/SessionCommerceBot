@@ -141,11 +141,12 @@ class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
             "amount": self.amount,
             "metadata": {"mobile": "phone", "email": self.user_id},
         }
-        return json.dumps(data)
+        return data
 
     def send_data(self, data: dict):
         """Send transaction data to ``zarinpal`` and return the response."""
         try:
+            data = json.dumps(data)
             return requests.post(
                 url=self.zarinpal_api_request, data=data, headers=self.zarinpal_headers
             ).json()
