@@ -15,6 +15,7 @@ from ecommerce.payment.models import CryptoPayment, Transaction, ZarinPalPayment
 from ecommerce.payment.permission import WhitelistIPPermission
 from ecommerce.payment.services import TransactionService, ZarinPalPaymentService
 from ecommerce.payment.utils.crypto_symbol_price import Nobitex
+from ecommerce.payment.utils.obfuscation import Obfuscate
 from ecommerce.telegram.telegram import Telegram
 from utils.load_env import config as CONFIG
 
@@ -45,14 +46,6 @@ class TransactionUtils:
     def upgrade_user_balance(self, pay_amount, user):
         user.balance += pay_amount
         user.save(update_fields=["balance"])
-
-    @staticmethod
-    def deobfuscate_url_params(encoded_data):
-        """Decode url params that send for create transaction"""
-        decoded_data = base64.urlsafe_b64decode(encoded_data).decode()
-        key = 0x5F
-        deobfuscate_data = "".join(chr(ord(char) ^ key) for char in decoded_data)
-        return deobfuscate_data
 
     @staticmethod
     def log_telegram_and_notify(transaction: Transaction):
@@ -91,7 +84,7 @@ class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
 
     def get(self, request, *args, **kwargs):
         txn = kwargs.get("txn")
-        decoded_data = self.deobfuscate_url_params(txn)
+        decoded_data = Obfuscate.deobfuscate_data(txn)
         self.user_id, self.amount = self.extract_data_params(decoded_data)
         authority = None
         response = {}
@@ -402,7 +395,7 @@ class CryptoMusSuccessTransaction(APIView, TransactionUtils):
 
     def get(self, request, *args, **kwargs):
         data = kwargs.get("oi")
-        order_id = self.deobfuscate_url_params(data)
+        order_id = Obfuscate.deobfuscate_data(data)
         context = {"txn_type": "crypto"}
         if not order_id:
             return render(request, self.error_template_name, context)
