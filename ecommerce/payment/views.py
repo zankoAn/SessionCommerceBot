@@ -155,6 +155,9 @@ class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
             last_transaction = TransactionService().get_payment(
                 payer=self.user, payment_method=method, status=status
             )
+            if not last_transaction:
+                return False
+
             TransactionService().update_payment(
                 payment_id=last_transaction.id,
                 payer=self.user,
@@ -191,9 +194,8 @@ class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
             * ZarinPalPayment.DoesNotExist
             * TransactionPaidBefore
         """
-        try:
-            pay = ZarinPalPaymentService().get_payment(authority=self.authority)
-        except ZarinPalPayment.DoesNotExist:
+        pay = ZarinPalPaymentService().get_payment(authority=self.authority)
+        if not pay:
             raise ZarinPalPayment.DoesNotExist
 
         transaction = pay.transaction
@@ -335,17 +337,10 @@ class CryptoMusVerifyTransaction(APIView, TransactionUtils):
     def _get_transaction(self, order_id):
         try:
             transaction = TransactionService().get_payment(crypto__order_id=order_id)
-            return transaction
-
-        except Transaction.DoesNotExist:
-            return False
-
-        except CryptoPayment.DoesNotExist:
-            return False
-
+            if transaction:
+                return transaction
         except Exception as er:
             print(er)
-            return False
 
     def post(self, request):
         data = request.data
@@ -399,14 +394,16 @@ class CryptoMusSuccessTransaction(APIView, TransactionUtils):
         context = {"txn_type": "crypto"}
         if not order_id:
             return render(request, self.error_template_name, context)
-        try:
-            transaction = TransactionService().get_payment(crypto__order_id=order_id)
-        except Transaction.DoesNotExist:
+
+        transaction = TransactionService().get_payment(crypto__order_id=order_id)
+        if not transaction:
             return render(request, self.error_template_name, context)
 
-        context.update({
-            "txn_hash": transaction.crypto.tx_hash,
-            "txn_amount_usd": transaction.amount_usd,
-            "txn_amount_rial": transaction.amount_rial,
-        })
+        context.update(
+            {
+                "txn_hash": transaction.crypto.tx_hash,
+                "txn_amount_usd": transaction.amount_usd,
+                "txn_amount_rial": transaction.amount_rial,
+            }
+        )
         return render(request, self.success_template_name, context)
