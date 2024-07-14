@@ -13,6 +13,7 @@ from ecommerce.payment.models import (
 
 class TransactionService:
     payment_model = Transaction
+    method_type = None
 
     def create_base_payment(self, user) -> Transaction:
         payment = Transaction.objects.create(
@@ -40,11 +41,11 @@ class TransactionService:
             print(msg)
             raise
 
-    def get_payment(self, **kwargs) -> Transaction:
+    def get_payment(self, **kwargs) -> Transaction | None:
         queryset = self.payment_model.objects.filter(**kwargs)
         if not queryset.exists():
             print(f"{self.payment_model} record not found")
-            raise self.payment_model.DoesNotExist
+            return None
 
         if self.payment_model == Transaction:
             payment = queryset.select_related("zarinpal", "perfectmoney", "crypto")
