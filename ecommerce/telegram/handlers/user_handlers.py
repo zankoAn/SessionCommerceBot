@@ -1,5 +1,4 @@
 import asyncio
-import base64
 from uuid import uuid4
 
 from cryptomus import Client
@@ -13,6 +12,7 @@ from ecommerce.payment.services import (
     PerfectMoneyPaymentService,
     ZarinPalPaymentService,
 )
+from ecommerce.payment.utils.obfuscation import Obfuscate
 from ecommerce.product.services import (
     AccountSessionService,
     OrderService,
@@ -202,7 +202,7 @@ class UserInputHandler:
         )
         payment.transaction.amount_usd = amount
         payment.transaction.save(update_fields=["amount_usd"])
-        url_params = self._obfuscate_url_params(payment.order_id)
+        url_params = Obfuscate.deobfuscate_data(payment.order_id)
         payload = {
             "amount": amount,
             "currency": "USD",
@@ -221,21 +221,16 @@ class UserInputHandler:
     def zarinpal_get_rial_amount(self):
         ZarinPalPaymentService().create_payment(self.user_obj)
         amount = self.convert_ir_num_to_en(self.text)
-        txn = self._obfuscate_url_params(
-            f"{self.user_obj.username}&{self.chat_id}&{amount}"
-        )
+        raw_data = f"{self.user_obj.username}&{self.chat_id}&{amount}"
+        txn = Obfuscate.obfuscate_data(raw_data)
         url = f"{CONFIG.BASE_SITE_URL}{reverse('payment:create-zarinpal-txn', args=[txn])}"
+
         msg = Message.objects.get(current_step="rial-payment")
         msg.keys = msg.keys.format(url=url, callback="")
         reply_markup = self.generate_keyboards(msg)
         text = msg.text.format(user_id=self.chat_id)
-        self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
-    def _obfuscate_url_params(self, data):
-        key = 0x5F
-        obfuscated_data = "".join(chr(ord(char) ^ key) for char in data)
-        encoded_data = base64.urlsafe_b64encode(obfuscated_data.encode())
-        return encoded_data.decode()
+        self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
     def handlers(self):
         self.add_dynamic_admin_user_ticket_step()
@@ -328,9 +323,7 @@ class UserCallbackHandler(UserTextHandler):
             return self.bot.send_answer_callback_query(
                 self.callback_query_id, "❌ شماره یافت نشد ❌"
             )
-        code = asyncio.run(
-            TMAccountManager(session.id).retrieve_login_code(phone)
-        )
+        code = asyncio.run(TMAccountManager(session.id).retrieve_login_code(phone))
         if not code:
             return self.bot.send_answer_callback_query(
                 self.callback_query_id, "❌ کد یافت نشد ❌"
