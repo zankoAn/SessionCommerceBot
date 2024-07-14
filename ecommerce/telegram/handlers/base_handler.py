@@ -105,19 +105,17 @@ class BaseHandler:
                     else:
                         inner_keys += [{"text": text, "url": "https://" + url}]
                 inline_keyboard.append(inner_keys)
-            return json.dumps({"inline_keyboard": inline_keyboard})
+            return {"inline_keyboard": inline_keyboard}
         else:
             keyboard = [
                 keys[i : i + msg.keys_per_row]
                 for i in range(0, len(keys), msg.keys_per_row)
             ]
-            return json.dumps(
-                {
-                    "keyboard": keyboard,
-                    "resize_keyboard": True,
-                    "one_time_keyboard": True,
-                }
-            )
+            return {
+                "keyboard": keyboard,
+                "resize_keyboard": True,
+                "one_time_keyboard": True,
+            }
 
     def text_handlers(self):
         msg_step = (
@@ -139,7 +137,6 @@ class BaseHandler:
 
             elif self.user_obj.step.startswith("admin"):
                 AdminStepHandler(self).run()
-
         return UserInputHandler(self).run()
 
     def run(self):
