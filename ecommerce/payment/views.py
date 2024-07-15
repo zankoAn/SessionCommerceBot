@@ -1,19 +1,26 @@
-import base64
 import json
 import traceback
+from typing import Tuple
+from uuid import uuid4
 
 import requests
+from cryptomus import Client as CryptomusClient
 from django.contrib.auth import get_user_model
-from django.shortcuts import redirect, render
+from django.shortcuts import render
+from django.urls import reverse
 from django.utils.translation import gettext as _
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from ecommerce.bot.models import Message
 from ecommerce.payment.exception import TransactionPaidBefore
-from ecommerce.payment.models import CryptoPayment, Transaction, ZarinPalPayment
+from ecommerce.payment.models import Transaction, ZarinPalPayment
 from ecommerce.payment.permission import WhitelistIPPermission
-from ecommerce.payment.services import TransactionService, ZarinPalPaymentService
+from ecommerce.payment.services import (
+    CryptoPaymentService,
+    TransactionService,
+    ZarinPalPaymentService,
+)
 from ecommerce.payment.utils.crypto_symbol_price import Nobitex
 from ecommerce.payment.utils.obfuscation import Obfuscate
 from ecommerce.telegram.telegram import Telegram
@@ -76,55 +83,23 @@ class TransactionUtils:
         )
 
 
-#########################
-# ZarinPal Transaction
-#
-class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
-    error_template_name = "payment/transaction_error.html"
+class ZarinpalCreateTransaction(ZarinpalMetaData, TransactionUtils):
+    def __init__(self, user_obj, amount):
+        self.user_obj = user_obj
+        self.amount = amount
 
-    def get(self, request, *args, **kwargs):
-        txn = kwargs.get("txn")
-        decoded_data = Obfuscate.deobfuscate_data(txn)
-        self.user_id, self.amount = self.extract_data_params(decoded_data)
-        authority = None
-        response = {}
+    def create_transaction(self) -> Tuple[bool, str]:
+        data = self.serialize_send_data()
+        response = self.send_data(data)
+        if not response or response.get("errors"):
+            return False, response.get("errors")
 
-        if self.is_valid():
-            data = self.serialize_send_data()
-            response = self.send_data(data)
-            if not response or response.get("errors"):
-                return self.render_error_template(response, authority)
-            authority = response["data"]["authority"]
-            is_save = self.save_transaction(authority)
-            if is_save:
-                success_url = self.zarinpal_api_startpay.format(authority=authority)
-                return redirect(success_url)
-
-        return self.render_error_template(response, authority)
-
-    def extract_data_params(self, data):
-        try:
-            user_id, amount = data.split("&")[1:]
-            return user_id, amount
-        except Exception:
-            return 0, 0
-
-    def is_valid(self) -> bool:
-        try:
-            amount = int(self.amount)
-            if not self.validate_min_amount_limit(amount):
-                return False
-
-            user = User.objects.filter(user_id=self.user_id)
-            if not user:
-                return False
-
-            self.user = user.first()
-            return True
-        except Exception:
-            msg = traceback.format_exc().strip()
-            print(msg)
-            return False
+        authority = response.get("data", {}).get("authority", 0)
+        is_save = self.save_transaction(authority)
+        if is_save:
+            success_url = self.zarinpal_api_startpay.format(authority=authority)
+            return True, success_url
+        return False, False
 
     def serialize_send_data(self):
         data = {
@@ -132,7 +107,7 @@ class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
             "description": "description",
             "callback_url": self.zarinpal_callback,
             "amount": self.amount,
-            "metadata": {"mobile": "phone", "email": self.user_id},
+            "metadata": {"mobile": "phone", "email": self.user_obj.user_id},
         }
         return data
 
@@ -149,39 +124,15 @@ class ZarinpalCreateTransaction(APIView, ZarinpalMetaData, TransactionUtils):
             return {}
 
     def save_transaction(self, authority):
-        status = Transaction.StatusChoices.IN_PROGRESS
-        method = Transaction.PaymentMethodChoices.ZARINPAL
         try:
-            last_transaction = TransactionService().get_payment(
-                payer=self.user, payment_method=method, status=status
+            payment = ZarinPalPaymentService().create_payment(
+                user=self.user_obj, authority=authority
             )
-            if not last_transaction:
-                return False
-
-            TransactionService().update_payment(
-                payment_id=last_transaction.id,
-                payer=self.user,
-                amount_rial=self.amount,
-            )
-            ZarinPalPaymentService().update_payment(
-                payment_id=last_transaction.zarinpal.id,
-                transaction=last_transaction.id,
-                authority=authority,
-            )
+            payment.transaction.amount_rial = self.amount
+            payment.transaction.save(update_fields=["amount_rial"])
             return True
         except Exception:
             return False
-
-    def render_error_template(self, response, authority):
-        return render(
-            request=self.request,
-            template_name=self.error_template_name,
-            context={
-                "message": _(response.get("errors", {}).get("message", "Bad Data")),
-                "authority": authority,
-                "user_id": self.user_id,
-            },
-        )
 
 
 class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
@@ -246,7 +197,6 @@ class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
                 },
             }
             context = contexts.get(code)
-
         return render(
             request=self.request,
             template_name=self.error_template_name,
@@ -322,10 +272,62 @@ class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
         self.log_telegram_and_notify(transaction)
 
 
-#########################
-# Cryptomus Transaction
-#
-class CryptoMusVerifyTransaction(APIView, TransactionUtils):
+class CryptomusCreateTransaction(TransactionUtils):
+    def __init__(self, user_obj, amount):
+        self.user_obj = user_obj
+        self.amount = amount
+
+    def create_transaction(self) -> Tuple[bool, str]:
+        order_id = str(uuid4())
+        url_params = Obfuscate.obfuscate_data(order_id)
+        data = self.serialize_send_data(order_id, url_params)
+        response = self.send_data(data)
+        if not response:
+            return False, False
+
+        payment = self.save_transaction(order_id)
+        if payment:
+            return True, response["url"]
+        return False, False
+
+    def serialize_send_data(self, order_id, url_params):
+        payload = {
+            "amount": self.amount,
+            "currency": "USD",
+            "order_id": order_id,
+            "subtract": "100",
+            "lifetime": CONFIG.CRYPTOMUS_LIFETIME,
+            "url_callback": f"{CONFIG.BASE_SITE_URL}{reverse('payment:verify-cryptomus-txn')}",
+            "url_success": f"{CONFIG.BASE_SITE_URL}{reverse('payment:success-cryptomus-txn', args=[url_params])}",
+        }
+        return payload
+
+    def send_data(self, payload: dict):
+        """Send transaction data to ``zarinpal`` and return the response."""
+        try:
+            payment = CryptomusClient.payment(
+                CONFIG.CRYPTOMUS_API_KEY, CONFIG.CRYPTOMUS_MERCHANT
+            )
+            response = payment.create(payload)
+            return response
+        except Exception:
+            msg = traceback.format_exc().strip()
+            print(msg)
+            return {}
+
+    def save_transaction(self, order_id):
+        try:
+            payment = CryptoPaymentService().create_payment(
+                user=self.user_obj, order_id=order_id
+            )
+            payment.transaction.amount_usd = self.amount
+            payment.transaction.save(update_fields=["amount_usd"])
+            return payment
+        except Exception:
+            return False
+
+
+class CryptomusVerifyTransaction(APIView, TransactionUtils):
     permission_classes = (WhitelistIPPermission,)
     error_template_name = "payment/transaction_error.html"
 
@@ -384,7 +386,7 @@ class CryptoMusVerifyTransaction(APIView, TransactionUtils):
         return Response("OK")
 
 
-class CryptoMusSuccessTransaction(APIView, TransactionUtils):
+class CryptomusSuccessTransaction(APIView, TransactionUtils):
     error_template_name = "payment/transaction_error.html"
     success_template_name = "payment/transaction_success.html"
 

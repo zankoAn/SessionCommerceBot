@@ -1,18 +1,14 @@
 import asyncio
-from uuid import uuid4
 
-from cryptomus import Client
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
-from django.urls import reverse
 
 from ecommerce.bot.models import Message
-from ecommerce.payment.services import (
-    CryptoPaymentService,
-    PerfectMoneyPaymentService,
-    ZarinPalPaymentService,
+from ecommerce.payment.services import PerfectMoneyPaymentService
+from ecommerce.payment.views import (
+    ZarinpalCreateTransaction,
+    CryptomusCreateTransaction,
 )
-from ecommerce.payment.utils.obfuscation import Obfuscate
 from ecommerce.product.services import (
     AccountSessionService,
     OrderService,
@@ -186,50 +182,40 @@ class UserInputHandler:
         self.user_qs.update(step="home_page")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=reply_markup)
 
-    @validators.validate_minimum_pay_amount(CONFIG.MIN_DOLLAR_PAY_LIMIT, "دلار")
+    @validators.validate_min_max_pay_amount(CONFIG.MIN_DOLLAR_PAY_LIMIT, "دلار")
     def cryptomus_get_amount(self):
-        url = self._cryptomus_create_payment()
+        amount = self.convert_ir_num_to_en(self.text)
+        wait_msg = self.bot.send_message(self.chat_id, "⏳")
+        status, data = CryptomusCreateTransaction(
+            self.user_obj, amount
+        ).create_transaction()
+        if not status:
+            msg = Message.objects.get(current_step="create-payment-error").text
+            return self.bot.send_message(self.chat_id, msg)
+
         msg = Message.objects.get(current_step="crypto-payment")
-        msg.keys = msg.keys.format(url=url, callback="")
+        msg.keys = msg.keys.format(url=data, callback="")
         reply_markup = self.generate_keyboards(msg)
         text = msg.text.format(user_id=self.chat_id)
+        self.bot.delete_message(self.chat_id, wait_msg["result"]["message_id"])
         self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
-    def _cryptomus_create_payment(self):
-        amount = self.convert_ir_num_to_en(self.text)
-        payment = CryptoPaymentService().create_payment(
-            user=self.user_obj, order_id=str(uuid4())
-        )
-        payment.transaction.amount_usd = amount
-        payment.transaction.save(update_fields=["amount_usd"])
-        url_params = Obfuscate.deobfuscate_data(payment.order_id)
-        payload = {
-            "amount": amount,
-            "currency": "USD",
-            "order_id": payment.order_id,
-            "subtract": "100",
-            "lifetime": CONFIG.CRYPTOMUS_LIFETIME,
-            "url_callback": f"{CONFIG.BASE_SITE_URL}{reverse('payment:verify-cryptomus-txn')}",
-            "url_success": f"{CONFIG.BASE_SITE_URL}{reverse('payment:success-cryptomus-txn', args=[url_params])}",
-        }
-        payment = Client.payment(CONFIG.CRYPTOMUS_API_KEY, CONFIG.CRYPTOMUS_MERCHANT)
-        response = payment.create(payload)
-        url = response["url"]
-        return url
-
-    @validators.validate_minimum_pay_amount(CONFIG.MIN_RIAL_PAY_LIMIT, "ریال")
+    @validators.validate_min_max_pay_amount(CONFIG.MIN_RIAL_PAY_LIMIT, "ریال")
     def zarinpal_get_rial_amount(self):
-        ZarinPalPaymentService().create_payment(self.user_obj)
         amount = self.convert_ir_num_to_en(self.text)
-        raw_data = f"{self.user_obj.username}&{self.chat_id}&{amount}"
-        txn = Obfuscate.obfuscate_data(raw_data)
-        url = f"{CONFIG.BASE_SITE_URL}{reverse('payment:create-zarinpal-txn', args=[txn])}"
+        wait_msg = self.bot.send_message(self.chat_id, "⏳")
+        status, data = ZarinpalCreateTransaction(
+            self.user_obj, amount
+        ).create_transaction()
+        if not status:
+            msg = Message.objects.get(current_step="create-payment-error").text
+            return self.bot.send_message(self.chat_id, msg)
 
         msg = Message.objects.get(current_step="rial-payment")
-        msg.keys = msg.keys.format(url=url, callback="")
+        msg.keys = msg.keys.format(url=data, callback="")
         reply_markup = self.generate_keyboards(msg)
         text = msg.text.format(user_id=self.chat_id)
-
+        self.bot.delete_message(self.chat_id, wait_msg["result"]["message_id"])
         self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
     def handlers(self):
