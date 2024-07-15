@@ -12,6 +12,10 @@ class TextUpdateDeserializer:
         self.text = self.update.get("text", "")
         self.reply_to_msg = self.update.get("reply_to_message", [])
         self.file_id = self.update.get("document", {}).get("file_id", 0)
+        self.file_name = self.update.get("document", {}).get("file_name", "")
+        self.file_mime_type = self.update.get("document", {}).get("mime_type", "")
+        self.file_size = self.update.get("document", {}).get("file_size", 0)
+
 
 
 class CallbackUpdateDeSerializer:
