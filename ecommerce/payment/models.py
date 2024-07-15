@@ -12,7 +12,8 @@ class Transaction(models.Model):
         PAID_OVER = __("Success Transaction And Pay more ✅")
         FAIL = __("Failed Transaction ❌")
         IN_PROGRESS = __("⏳ In Progress")
-        WRONG_AMOUNT = ("Wrong Amount Waiting ❌")
+        WRONG_AMOUNT = __("Wrong Amount Waiting ❌")
+        PREPAID = __("Already Paid ❌")
 
     class PaymentMethodChoices(models.TextChoices):
         ZARINPAL = __("ZarinPal")

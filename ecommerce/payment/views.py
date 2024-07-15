@@ -174,6 +174,8 @@ class ZarinpalVerifyTransaction(APIView, ZarinpalMetaData, TransactionUtils):
                 self.finalize_success_payment(transaction)
                 return self.render_success_template(context_data)
             if context_data.get("code") == 101:
+                transaction.status = Transaction.StatusChoices.PREPAID
+                transaction.save(update_fields=["status"])
                 return self.render_error_template(code="paid_before")
 
         transaction.status = Transaction.StatusChoices.FAIL
