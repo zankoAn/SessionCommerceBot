@@ -42,12 +42,12 @@ class Validators:
         return wrapper
 
     @staticmethod
-    def validate_minimum_pay_amount(min_limit, currency_type):
+    def validate_min_max_pay_amount(min_limit, currency_type):
         def decorator(func):
             def wrapper(self):
                 try:
                     amount = float(self.text)
-                    if amount >= float(min_limit):
+                    if amount >= float(min_limit) and len(self.text) <= 10:
                         return func(self)
                     else:
                         error_msg = "min-amount-limit-error"
