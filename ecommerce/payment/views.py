@@ -331,7 +331,6 @@ class CryptomusCreateTransaction(TransactionUtils):
 
 class CryptomusVerifyTransaction(APIView, TransactionUtils):
     permission_classes = (WhitelistIPPermission,)
-    error_template_name = "payment/transaction_error.html"
 
     def get_pay_amount_in_rial(self, amount_usd):
         price_per_dollar = Nobitex().get_symbol_price()
@@ -351,7 +350,7 @@ class CryptomusVerifyTransaction(APIView, TransactionUtils):
         order_id = data.get("order_id")
         transaction = self._get_transaction(order_id)
         if not transaction:
-            return Response("Hi")
+            return Response("no")
 
         status = data.get("status")
         match status:
@@ -389,19 +388,19 @@ class CryptomusVerifyTransaction(APIView, TransactionUtils):
 
 
 class CryptomusSuccessTransaction(APIView, TransactionUtils):
-    error_template_name = "payment/transaction_error.html"
-    success_template_name = "payment/transaction_success.html"
+    error_template = "payment/transaction_error.html"
+    success_template = "payment/transaction_success.html"
 
     def get(self, request, *args, **kwargs):
         data = kwargs.get("oi")
         order_id = Obfuscate.deobfuscate_data(data)
         context = {"txn_type": "crypto"}
         if not order_id:
-            return render(request, self.error_template_name, context)
+            return render(request, template_name=self.error_template, context=context)
 
         transaction = TransactionService().get_payment(crypto__order_id=order_id)
         if not transaction:
-            return render(request, self.error_template_name, context)
+            return render(request, template_name=self.error_template, context=context)
 
         context.update(
             {
@@ -410,4 +409,4 @@ class CryptomusSuccessTransaction(APIView, TransactionUtils):
                 "txn_amount_rial": transaction.amount_rial,
             }
         )
-        return render(request, self.success_template_name, context)
+        return render(request, template_name=self.success_template, context=context)
