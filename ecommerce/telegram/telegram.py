@@ -21,6 +21,9 @@ class Telegram:
             }
         url = self.webhook_url.format(config.TOKEN, telegram_method)
         try:
+            if keys := data.get("reply_markup"):
+                data["reply_markup"] = json.dumps(keys)
+
             if method == "GET":
                 request = requests.get(
                     url, params=data, proxies=self.proxy, headers=self.headers
@@ -97,9 +100,6 @@ class Telegram:
                 instructions to remove reply keyboard or to force a reply from the user.
 
         """
-        if reply_markup:
-            reply_markup = json.dumps(reply_markup)
-
         data = {
             "chat_id": chat_id,
             "text": text,
@@ -128,9 +128,6 @@ class Telegram:
             allow_sending_without_reply -> Bool ,
             reply_markup - > List ,
         """
-        if reply_markup := kwargs["reply_markup"]:
-           reply_markup = json.dumps(reply_markup)
-
         data = {
             "chat_id": chat_id,
             "message_id": message_id,
@@ -187,9 +184,6 @@ class Telegram:
                 allow_sending_without_reply -> Bool
                 reply_markup -> List
         """
-        if reply_markup := kwargs["reply_markup"]:
-           reply_markup = json.dumps(reply_markup)
-
         data = {
             "chat_id": chat_id,
             "from_chat_id": from_chat_id,
@@ -243,9 +237,6 @@ class Telegram:
                 allow_sending_without_reply -> Bool ,
                 reply_markup -> List ,
         """
-        if reply_markup := kwargs["reply_markup"]:
-           reply_markup = json.dumps(reply_markup)
-
         method = "POST"
         data = {"chat_id": str(chat_id)}
         file_doc = {"document": open(document, "rb")}
@@ -264,10 +255,9 @@ class Telegram:
 
     def remove_inline_keyboard(self, chat_id, message_id, keyboard):
         """Remove or edit the inline keyboard from msg"""
-        reply_markup = json.dumps({"inline_keyboard": [keyboard]})
         data = {
             "chat_id": chat_id,
             "message_id": message_id,
-            "reply_markup": reply_markup,
+            "reply_markup": {"inline_keyboard": [keyboard]},
         }
         self.bot("editMessageReplyMarkup", data=data, method="post")
