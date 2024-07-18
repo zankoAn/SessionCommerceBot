@@ -1,10 +1,15 @@
 from django.db import models
 from django.utils.translation import gettext_lazy as _
+from django.utils.translation import gettext as __
 from django.contrib.auth.models import AbstractUser
 from django.db.models import Sum
 
 
 class User(AbstractUser):
+    class LanguageChoices(models.TextChoices):
+        PERSIAN = "fa"
+        ENGLISH = "en"
+
     user_id = models.BigIntegerField(
         unique=True,
         verbose_name=_("user id")
@@ -21,6 +26,14 @@ class User(AbstractUser):
     balance = models.PositiveBigIntegerField(
         default=10000,
         verbose_name=_("balance")
+    )
+    language = models.CharField(
+        max_length=50,
+        verbose_name=_("User default language"),
+        choices=LanguageChoices.choices,
+        default=None,
+        blank=True,
+        null=True
     )
     USERNAME_FIELD = "username"
     REQUIRED_FIELDS = ["user_id"]

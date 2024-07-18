@@ -9,7 +9,7 @@ class UserAdmin(BaseUserAdmin):
         queryset = super().get_queryset(request)
         return queryset
 
-    list_display = ("id", "username", "user_id", "balance", "step", "is_send_ads")
+    list_display = ("id", "username", "user_id", "balance", "language", "step", "is_send_ads")
     list_display_links = ("id", "username")
 
     fieldsets = (
@@ -21,6 +21,7 @@ class UserAdmin(BaseUserAdmin):
                     "first_name",
                     "last_name",
                     "username",
+                    "language",
                     "balance",
                     "step",
                     "is_send_ads",
