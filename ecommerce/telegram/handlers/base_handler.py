@@ -1,4 +1,5 @@
 from django.core.cache import cache
+from django.utils.translation import gettext, override
 
 from ecommerce.account.models import User
 from ecommerce.bot.models import BotUpdateStatus
@@ -88,6 +89,23 @@ class BaseHandler:
 
         return False
 
+    def choice_default_language(self):
+        if self.user_obj.language:
+            return True
+
+        msg = MessageService(self.user_obj).get(step="choice-language")
+        keys = self.generate_keyboards(msg)
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+
+    def _localize_update_text(self):
+        if self.user_obj.language == "fa":
+            return
+
+        with override("fa"):
+            transalted_text = gettext(self.update.text)
+
+        self.update.text = transalted_text
+
     def generate_keyboards(self, msg):
         keys = msg.fetch_keys
         if msg.is_inline_keyboard:
@@ -135,9 +153,12 @@ class BaseHandler:
 
     def run(self):
         self.add_new_user()
+        self._localize_update_text()
         if self.is_update_mode():
             return
         if self.is_deactive_user():
+            return
+        if not self.choice_default_language():
             return
         self.text_handlers()
 
@@ -159,6 +180,21 @@ class BaseCallbackHandler(BaseHandler):
         self.user_qs = User.objects.filter(user_id=self.from_chat_id)
         self.user_obj = self.user_qs.first()
 
+    def store_choiced_language(self):
+        if self.user_obj.language:
+            return True
+
+        match self.update.callback_data:
+            case "english":
+                self.user_qs.update(language=User.LanguageChoices.ENGLISH)
+            case "persian":
+                self.user_qs.update(language=User.LanguageChoices.PERSIAN)
+
+        self.user_obj.refresh_from_db()
+        msg = MessageService(self.user_obj).filter_user_msgs(current_step="home_page")[0]
+        keys = self.generate_keyboards(msg)
+        self.bot.send_message(self.chat_id, msg.text, reply_markup=keys)
+
     def validate_cached_data(self):
         cached_data = cache.get(self.chat_id)
         if not cached_data:
@@ -178,5 +214,7 @@ class BaseCallbackHandler(BaseHandler):
         if self.is_update_mode():
             return
         if self.is_deactive_user():
+            return
+        if not self.store_choiced_language():
             return
         self.callback_handlers()

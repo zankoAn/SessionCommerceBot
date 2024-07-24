@@ -2,6 +2,7 @@ import asyncio
 
 from django.contrib.auth import get_user_model
 from django.core.cache import cache
+from django.utils.translation import gettext, override
 
 from ecommerce.bot.models import Message
 from ecommerce.bot.services import MessageService
@@ -43,7 +44,8 @@ class UserTextHandler:
         )
 
     def user_profile(self, msg_obj):
-        return msg_obj.text.format(
+        text = msg_obj.text.strip()
+        return text.format(
             user_id=self.chat_id,
             total_order=self.user_obj.orders.count(),
             total_pay=self.user_obj.calculate_total_paid,
@@ -56,8 +58,10 @@ class UserTextHandler:
         products = ProductService().get_active_countries()
         keys = ""
         for product in products:
+            with override(self.user_obj.language):
+                product_name = gettext(product.name)
             keys += (
-                f"\n{product.price:,} | {product.name}:country-{product.country_code}:"
+                f"\n{product.price:,} | {product_name}:country-{product.country_code}:"
             )
         msg_obj.keys = keys.strip()
         return msg_obj
