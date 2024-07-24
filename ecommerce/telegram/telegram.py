@@ -1,9 +1,20 @@
 import json
-from typing import List, Optional, Union
+from datetime import datetime
+from typing import NewType, Optional, Union
 
 import requests
 
 from utils.load_env import config
+
+ParseMode = NewType("ParseMode", str)
+MessageEntity = NewType("MessageEntity", list)
+ForceReply = NewType("ForceReply", list)
+InlineKeyboardMarkup = NewType("InlineKeyboardMarkup", list)
+ReplyKeyboardMarkup = NewType("ReplyKeyboardMarkup", list)
+ReplyKeyboardRemove = NewType("ReplyKeyboardRemove", list)
+ReplyMarkup = Union[
+    InlineKeyboardMarkup, ReplyKeyboardMarkup, ReplyKeyboardRemove, ForceReply
+]
 
 
 class Telegram:
@@ -46,22 +57,17 @@ class Telegram:
             print("Error in Telegram Class: ", error)
 
     def send_message(
-        self: "Telegram",
+        self,
         chat_id: Union[int, str],
         text: str,
-        parse_mode: Optional["ParseMode"] = "html",
-        entities: List["MessageEntity"] = None,
-        disable_web_page_preview: bool = True,
-        disable_notification: bool = None,
-        reply_to_message_id: int = None,
-        schedule_date: "datetime" = None,
-        protect_content: bool = None,
-        reply_markup: Union[
-            "InlineKeyboardMarkup",
-            "ReplyKeyboardMarkup",
-            "ReplyKeyboardRemove",
-            "ForceReply",
-        ] = None,
+        parse_mode: Optional[ParseMode] = "html",
+        entities: Optional[MessageEntity] = None,
+        disable_web_page_preview: Optional[bool] = True,
+        disable_notification: Optional[bool] = None,
+        reply_to_message_id: Optional[int] = None,
+        schedule_date: Optional[datetime] = None,
+        protect_content: Optional[bool] = None,
+        reply_markup: Optional[ReplyMarkup] = None,
     ):
         """
         This Method for sending a message in telegram.
