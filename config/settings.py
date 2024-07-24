@@ -43,6 +43,7 @@ INSTALLED_APPS += [
 MIDDLEWARE = [
     "django.middleware.security.SecurityMiddleware",
     "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.locale.LocaleMiddleware",
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
@@ -110,3 +111,15 @@ CACHES = {
         "OPTIONS": {"db": "3"},
     }
 }
+
+from django.utils.translation import gettext_lazy as _
+
+# Languages
+LANGUAGES = [
+    ("fa", _("Persian")),
+    ("en", _("English")),
+]
+
+LOCALE_PATHS = [
+    Path.joinpath(BASE_DIR, "locale"),
+]
