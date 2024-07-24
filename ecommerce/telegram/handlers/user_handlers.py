@@ -17,6 +17,10 @@ from ecommerce.product.services import (
     ProductService,
 )
 from ecommerce.telegram.account_manager import TMAccountManager
+from ecommerce.telegram.decorators import (
+    restrict_global_payment_rate,
+    restrict_user_payment_rate,
+)
 from ecommerce.telegram.validators import Validators
 from utils.load_env import config as CONFIG
 
@@ -185,6 +189,8 @@ class UserInputHandler:
         self.user_qs.update(step="home_page")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=reply_markup)
 
+    @restrict_user_payment_rate
+    @restrict_global_payment_rate
     @validators.validate_min_max_pay_amount(CONFIG.MIN_DOLLAR_PAY_LIMIT, "دلار")
     def cryptomus_get_amount(self):
         amount = self.convert_ir_num_to_en(self.text)
@@ -203,6 +209,8 @@ class UserInputHandler:
         self.bot.delete_message(self.chat_id, wait_msg["result"]["message_id"])
         self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
+    @restrict_user_payment_rate
+    @restrict_global_payment_rate
     @validators.validate_min_max_pay_amount(CONFIG.MIN_RIAL_PAY_LIMIT, "ریال")
     def zarinpal_get_rial_amount(self):
         amount = self.convert_ir_num_to_en(self.text)
