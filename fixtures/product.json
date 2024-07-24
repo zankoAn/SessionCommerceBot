@@ -1,0 +1,130 @@
+[
+    {
+        "model": "product.product",
+        "pk": 1,
+        "fields": {
+            "name": "🇰🇷 کره جنوبی 🇰🇷",
+            "country_code": "kr",
+            "phone_code": "+82",
+            "price": 20000,
+            "is_active": true
+        }
+    },
+    {
+        "model": "product.product",
+        "pk": 2,
+        "fields": {
+            "name": "🇬🇧 انگلیس 🇬🇧",
+            "country_code": "gb",
+            "phone_code": "",
+            "price": 40000,
+            "is_active": true
+        }
+    },
+    {
+        "model": "product.product",
+        "pk": 3,
+        "fields": {
+            "name": "🇺🇸 آمریکا 🇺🇸",
+            "country_code": "us",
+            "phone_code": "+1",
+            "price": 30000,
+            "is_active": true
+        }
+    },
+    {
+        "model": "product.product",
+        "pk": 4,
+        "fields": {
+            "name": "🇮🇷 ایران 🇮🇷",
+            "country_code": "ir",
+            "phone_code": "+98",
+            "price": 50000,
+            "is_active": true
+        }
+    },
+    {
+        "model": "product.product",
+        "pk": 5,
+        "fields": {
+            "name": "🇨🇦 کانادا 🇨🇦",
+            "country_code": "uk",
+            "phone_code": "+3",
+            "price": 35000,
+            "is_active": true
+        }
+    },
+    {
+        "model": "product.product",
+        "pk": 6,
+        "fields": {
+            "name": "🇯🇵 ژاپن 🇯🇵",
+            "country_code": "jp",
+            "phone_code": "+81",
+            "price": 15000,
+            "is_active": true
+        }
+    },
+    {
+        "model": "product.accountsession",
+        "pk": 22,
+        "fields": {
+            "product": 1,
+            "proxy": "127.0.0.1:1359",
+            "api_id": "901903",
+            "api_hash": "ef8acfacf0d45e16bba0b0568251ef2b",
+            "phone": "+14199424261",
+            "app_version": null,
+            "device_model": null,
+            "system_version": null,
+            "password": "4268",
+            "status": "فروخته شد 💸",
+            "session_string": "AQANww8AlItJQiOsaTzTfcHTDdTc5ZxXqjIp5MwI_dmZTnnRf9fr-jwhyvDjNNAlTEZpJ9HMP9Yapqrt1YDmFn4HqcrgBnvj18WcAbQpM00uMNbVTia3KqIb6j4HjhieRFeedL2ahMMpfync8wLv_gZOHF5yrsIi5uGSzO7QwvBXTaSixOWU9TNI2loc-DXACA4v-7MdDp1d4LluViWXS8MNvMFUTxjiALYxMP02CRfg7YsXNkxijX5JGml4iqqfzXOMQNYIruL_DUOBZdQV1H-XEZU-XsmgmgKPV8vVC078WCxnU9GjAwj5GtarPrv9n-iyEQG1ORCn5Fez3kVoQRb4KI6yEgAAAAEwZ7opAA",
+            "created": "2024-01-08T16:22:45.812Z"
+        }
+    },
+    {
+        "model": "product.accountsession",
+        "pk": 24,
+        "fields": {
+            "product": 6,
+            "proxy": "127.0.0.1:1359",
+            "api_id": "901903",
+            "api_hash": "ef8acfacf0d45e16bba0b0568251ef2b",
+            "phone": "+9809125478199",
+            "app_version": null,
+            "device_model": null,
+            "system_version": null,
+            "password": "",
+            "status": "غیر فعال ❌",
+            "session_string": "1BJWap1wBuxZ61adwhm88AtGh2LEPjHoEFj-GUEPmEKTuQOwsGk90aNMdHS6bnYzcZNY1UjLWwb0kxpIeCRiukCAtj-KOu0fm8Ev3KUMtNyRVCelLAPDGpTpOw-L2iNogPuD8QnS7kBEvNLvyWScpr7Xx8sqdgiHfDz7-5bAi2R36Wh2lXKZxHdDy-F8SZktPYkOxCI9zET_8IjJEKve75g_VVolCBygnQBMdUgSmMIU_TNCg_TwkWY1PuLz3IfXWp4hfiAYJIKrFD5uQtvjNBBkTQwhituiwLx4OGCsoXM3h_hAo-bhnuK_duAywzb9VaCFTNP2gtsRM1aHWbTuBkVdNHLZwKys=",
+            "created": "2024-01-08T20:48:30.725Z"
+        }
+    },
+    {
+        "model": "product.order",
+        "pk": 70,
+        "fields": {
+            "user": 2,
+            "session": 12,
+            "login_code": "(False, None, None)",
+            "price": 50000,
+            "track_id": "e783f5b253cc",
+            "status": "در صف ",
+            "created": "2024-07-22T19:17:11.604Z"
+        }
+    },
+    {
+        "model": "product.order",
+        "pk": 71,
+        "fields": {
+            "user": 2,
+            "session": 22,
+            "login_code": "59",
+            "price": 20000,
+            "track_id": "30e6d3082ab2",
+            "status": "در صف ",
+            "created": "2024-07-23T06:37:23.900Z"
+        }
+    }
+]

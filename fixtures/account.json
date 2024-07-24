@@ -1,0 +1,48 @@
+[
+    {
+        "model": "account.user",
+        "pk": 2,
+        "fields": {
+            "password": "pbkdf2_sha256$720000$RSgm50l6yzxnWOmDg1Jwjv$lLZSfvrdOPI5xZ0xE7s6FTzTYNoFGG2rZ6e9axqnRyc=",
+            "last_login": "2024-07-22T14:54:48.938Z",
+            "is_superuser": true,
+            "username": "zankoAn",
+            "first_name": "#!z@₦₭o...;",
+            "last_name": "id",
+            "email": "",
+            "is_staff": true,
+            "is_active": true,
+            "date_joined": "2023-12-02T10:37:51.144Z",
+            "user_id": 117103902,
+            "step": "home_page",
+            "is_send_ads": false,
+            "balance": 600000,
+            "language": "en",
+            "groups": [],
+            "user_permissions": []
+        }
+    },
+    {
+        "model": "account.user",
+        "pk": 13,
+        "fields": {
+            "password": "pbkdf2_sha256$720000$6b8AKbnu65LKURtvnz5Ed7$EnezcfVG4pCuvpHZNpAQyKIhaj0sAilpvFjYa8HFK5k=",
+            "last_login": null,
+            "is_superuser": false,
+            "username": "test",
+            "first_name": "test",
+            "last_name": "test",
+            "email": "",
+            "is_staff": false,
+            "is_active": true,
+            "date_joined": "2024-07-24T09:18:04.679Z",
+            "user_id": 5165115150,
+            "step": "user_profile",
+            "is_send_ads": false,
+            "balance": 10000,
+            "language": "en",
+            "groups": [],
+            "user_permissions": []
+        }
+    }
+]
