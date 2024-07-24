@@ -1,6 +1,6 @@
 from django.core.cache import cache
 
-from ecommerce.bot.models import Message
+from ecommerce.bot.services import MessageService
 from ecommerce.product.models import AccountSession, Product
 
 
@@ -13,9 +13,7 @@ class Validators:
             # cache_key = f"limit-product-purchases:{self.chat_id}" # TODO: limit user to purchases the 3 account per 5 minute...;
             product = Product.objects.order_by("price").first()
             if self.user_obj.balance < product.price:
-                text = Message.objects.get(
-                    current_step="insufficient-balance-message"
-                ).text
+                text = MessageService(self.user_obj).get(step="insufficient-balance-message").text
                 self.bot.send_message(self.chat_id, text)
                 return
             return func(self, msg_obj)
@@ -29,7 +27,7 @@ class Validators:
             if product:
                 return func(self, *args)
 
-            text = Message.objects.get(current_step="product-not-found-error").text
+            text = MessageService(self.user_obj).get(step="product-not-found-error").text
             # Check to see msg has inlinekeyboard.
             if getattr(self, "msg_reply_markup", None):
                 # Show list country keyboard
@@ -51,12 +49,12 @@ class Validators:
                         return func(self)
                     else:
                         error_msg = "min-amount-limit-error"
-                        text = Message.objects.get(current_step=error_msg).text.format(
+                        text = MessageService(self.user_obj).get(step=error_msg).text.format(
                             min_amount=float(min_limit), pay_type=currency_type
                         )
                 except ValueError:
                     error_msg = "invalid-amount-format-error"
-                    text = Message.objects.get(current_step=error_msg).text
+                    text = MessageService(self.user_obj).get(step=error_msg).text
 
                 self.bot.send_message(self.chat_id, text)
 
@@ -75,7 +73,7 @@ class Validators:
             except ValueError:
                 error_msg = "invalid-amount-format-error"
 
-            text = Message.objects.get(current_step=error_msg).text
+            text = MessageService(self.user_obj).get(step=error_msg).text
             self.bot.send_message(self.chat_id, text)
 
         return wrapper
@@ -91,14 +89,14 @@ class Validators:
             except ValueError:
                 error_msg = "invalid-amount-format-error"
 
-            text = Message.objects.get(current_step=error_msg).text
+            text = MessageService(self.user_obj).get(step=error_msg).text
             self.bot.send_message(self.chat_id, text)
 
         return wrapper
 
     def validate_phone_number(self, func):
         def wrapper(self, product=None):
-            msg = Message.objects.get(current_step="phone-number-fmt-error").text
+            msg = MessageService(self.user_obj).get(step="phone-number-fmt-error").text
             user_phone = self.text.replace(" ", "").replace("-", "").strip()
             if not (10 < len(user_phone) < 15):  # phone length is not between 10...15
                 return self.bot.send_message(self.chat_id, msg)
@@ -108,7 +106,7 @@ class Validators:
 
     def validate_phone_country_code(self, func):
         def wrapper(self, product=None) -> Product:
-            msg = Message.objects.get(current_step="phone-number-country-error").text
+            msg = MessageService(self.user_obj).get(step="phone-number-country-error").text
             key = f"{self.chat_id}:add:session:country:code"
             country_code = cache.get(key)
             user_phone = self.text.replace(" ", "").replace("-", "").strip()
@@ -127,7 +125,7 @@ class Validators:
             if "دیفالت" in self.text:
                 return func(self)
 
-            msg = Message.objects.get(current_step="input-apis-format-error").text
+            msg = MessageService(self.user_obj).get(step="input-apis-format-error").text
             apis = self.text.split("\n")
             if len(apis) != 2:
                 return self.bot.send_message(self.chat_id, msg)
@@ -144,7 +142,7 @@ class Validators:
             if "دیفالت" in self.text:
                 return func(self)
 
-            msg = Message.objects.get(current_step="general-format-error").text
+            msg = MessageService(self.user_obj).get(step="general-format-error").text
             proxy = self.text.split(":")
             if len(proxy) not in (2, 4):
                 return self.bot.send_message(self.chat_id, msg)
@@ -164,7 +162,7 @@ class Validators:
                 error = True
 
             if error:
-                msg = Message.objects.get(current_step="general-format-error").text
+                msg = MessageService(self.user_obj).get(step="general-format-error").text
                 return self.bot.send_message(self.chat_id, msg)
             return func(self)
 
@@ -198,15 +196,16 @@ class Validators:
             ):
                 return func(self)
             else:
-                msg = Message.objects.get(current_step="general-format-error").text
+                msg = MessageService(self.user_obj).get(step="general-format-error").text
                 return self.bot.send_message(self.chat_id, msg)
 
         return wrapper
 
     def validate_session_string_format(self, func):
         def wrapper(self):
-            msg = Message.objects.get(current_step="general-format-error").text
+            msg = MessageService(self.user_obj).get(step="general-format-error").text
             if len(self.text) < 300:
                 return self.bot.send_message(self.chat_id, msg)
             return func(self)
+
         return wrapper

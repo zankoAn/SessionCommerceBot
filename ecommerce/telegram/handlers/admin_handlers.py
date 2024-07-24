@@ -24,6 +24,7 @@ from ecommerce.telegram.account_manager import (
     TMAccountManager,
 )
 from ecommerce.telegram.validators import Validators
+from ecommerce.bot.services import MessageService
 
 User = get_user_model()
 
@@ -133,13 +134,11 @@ class AdminTextHandler:
         return msg_obj
 
     def handler(self):
-        messages = Message.objects.filter(
-            key=self.text, current_step__startswith="admin"
-        )
+        messages = MessageService(self.user_obj).filter_admin_msgs(key=self.text)
         if not messages:
             return
 
-        self.user_qs.update(step=messages.last().current_step)
+        self.user_qs.update(step=messages[-1].current_step)
         # Itrate over all related step msg.
         for msg in messages:
             reply_markup = None
@@ -186,7 +185,7 @@ class AdminStepHandler:
         )
 
     def retrive_msg_and_keys(self, step):
-        msg = Message.objects.filter(current_step=step).first()
+        msg = MessageService(self.user_obj).get(step)
         keys = self.generate_keyboards(msg)
         return msg, keys
 
@@ -200,7 +199,7 @@ class AdminStepHandler:
         user = self.text
         user = User.objects.filter(Q(username=user) | Q(user_id=user)).first()
         if user:
-            msg = Message.objects.filter(current_step="admin-user-info").first()
+            msg = MessageService(self.user_obj).get(step="admin-user-info")
             text_msg = msg.text.format(
                 user_id=user.user_id,
                 name=user.first_name,
@@ -228,7 +227,7 @@ class AdminStepHandler:
             TMAccountManager(session.id).check_session_status()
         )
         if not status:
-            msg = Message.objects.get(current_step="general-format-error").text
+            msg = MessageService(self.user_obj).get(step="general-format-error").text
             return self.bot.send_message(self.chat_id, msg)
 
         AccountSessionService().update_session(session.id, phone=phone_number)
@@ -291,7 +290,7 @@ class AdminStepHandler:
             session_string, phone = self.download_normal_session_file(content)
 
         if not session_string:
-            msg = Message.objects.get(current_step="general-format-error").text
+            msg = MessageService(self.user_obj).get(step="general-format-error").text
             return self.bot.send_message(self.chat_id, msg)
 
         key = f"{self.chat_id}:add:session:country:code"
@@ -342,7 +341,7 @@ class AdminStepHandler:
             )
             if not status:
                 self.bot.delete_message(self.chat_id, wait_msg["result"]["message_id"])
-                msg = Message.objects.get(current_step="invalid-phone-error")
+                msg = MessageService(self.user_obj).get(step="invalid-phone-error")
                 return self.bot.send_message(self.chat_id, msg.text)
 
             # Cache the client object
@@ -445,7 +444,7 @@ class AdminStepHandler:
     def respond_to_ticket(self):
         user_id = self.reply_to_msg["text"].split("\n")[0].split(":")[1].strip()
         self.bot.copy_message(user_id, self.chat_id, self.message_id)
-        msg = Message.objects.get(current_step="admin-respond-success-ticket")
+        msg = MessageService(self.user_obj).get(step="admin-respond-success-ticket")
         self.bot.send_message(self.chat_id, msg.text)
 
     def handler(self):
@@ -482,7 +481,9 @@ class AdminCallbackHandler:
 
         self.bot.delete_message(self.chat_id, self.message_id)
 
-        msg = Message.objects.get(current_step=f"admin-get-session-{add_session_type}")
+        msg = MessageService(self.user_obj).get(
+            step=f"admin-get-session-{add_session_type}"
+        )
         text = msg.text.format(country_phone_code=phone_code)
         keys = self.generate_keyboards(msg)
         self.bot.send_message(self.chat_id, text, reply_markup=keys)

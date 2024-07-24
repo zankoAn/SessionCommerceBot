@@ -4,10 +4,11 @@ from django.contrib.auth import get_user_model
 from django.core.cache import cache
 
 from ecommerce.bot.models import Message
+from ecommerce.bot.services import MessageService
 from ecommerce.payment.services import PerfectMoneyPaymentService
 from ecommerce.payment.views import (
-    ZarinpalCreateTransaction,
     CryptomusCreateTransaction,
+    ZarinpalCreateTransaction,
 )
 from ecommerce.product.services import (
     AccountSessionService,
@@ -62,7 +63,7 @@ class UserTextHandler:
         return msg_obj
 
     def select_payment_method(self, ـ):
-        msg = Message.objects.get(current_step="select_payment_method")
+        msg = MessageService(self.user_obj).get(step="select_payment_method")
         self.user_qs.update(step="select_amount")
         return msg.text
 
@@ -70,13 +71,10 @@ class UserTextHandler:
         if "/start" in self.text:
             self.text = "/start"
 
-        messages = Message.objects.filter(key=self.text).exclude(
-            current_step__startswith="admin"
-        )
+        messages = MessageService(self.user_obj).filter_user_msgs(key=self.text)
         if not messages:
             return
-
-        self.user_qs.update(step=messages.last().current_step)
+        self.user_qs.update(step=messages[-1].current_step)
         # Itrate over all related step msg.
         for msg in messages:
             reply_markup = None
@@ -138,13 +136,13 @@ class UserInputHandler:
         user_id = int(self.user_obj.step.split("-")[-1])
         admin_user = User.objects.get(is_staff=True, user_id=user_id)
         # Get and forward success msg
-        msg = Message.objects.get(current_step="send-success-ticket-msg")
+        msg = MessageService(self.user_obj).get(step="send-success-ticket-msg")
         resp = self.bot.forward_message(
             admin_user.user_id, self.chat_id, self.message_id
         )
         self.bot.send_message(self.chat_id, msg.text)
         # Send ticket info to admin(block/unblock)
-        msg = Message.objects.get(current_step="admin-ticket-info")
+        msg = MessageService(self.user_obj).get(step="admin-ticket-info")
         keys = self.generate_keyboards(msg)
         self.bot.send_message(
             admin_user,
@@ -165,7 +163,7 @@ class UserInputHandler:
         )
         key = f"{self.chat_id}:perfectmoney:payment:id"
         cache.set(key, payment.id)  # TODO: Add timout.
-        msg = Message.objects.get(current_step="perfectmoney-get-evcode").text
+        msg = MessageService(self.user_obj).get(step="perfectmoney-get-evcode").text
         self.user_qs.update(step="perfectmoney-get-activation-code")
         self.bot.send_message(self.chat_id, msg)
 
@@ -177,7 +175,7 @@ class UserInputHandler:
         PerfectMoneyPaymentService().update_payment(
             payment_id, activation_code=activation_code
         )
-        msg = Message.objects.get(current_step="perfectmoney-success-recive-data")
+        msg = MessageService(self.user_obj).get(step="perfectmoney-success-recive-data")
         reply_markup = self.generate_keyboards(msg)
         self.user_qs.update(step="home_page")
         self.bot.send_message(self.chat_id, msg.text, reply_markup=reply_markup)
@@ -190,10 +188,10 @@ class UserInputHandler:
             self.user_obj, amount
         ).create_transaction()
         if not status:
-            msg = Message.objects.get(current_step="create-payment-error").text
+            msg = MessageService(self.user_obj).get(step="create-payment-error").text
             return self.bot.send_message(self.chat_id, msg)
 
-        msg = Message.objects.get(current_step="crypto-payment")
+        msg = MessageService(self.user_obj).get(step="crypto-payment")
         msg.keys = msg.keys.format(url=data, callback="")
         reply_markup = self.generate_keyboards(msg)
         text = msg.text.format(user_id=self.chat_id)
@@ -208,10 +206,10 @@ class UserInputHandler:
             self.user_obj, amount
         ).create_transaction()
         if not status:
-            msg = Message.objects.get(current_step="create-payment-error").text
+            msg = MessageService(self.user_obj).get(step="create-payment-error").text
             return self.bot.send_message(self.chat_id, msg)
 
-        msg = Message.objects.get(current_step="rial-payment")
+        msg = MessageService(self.user_obj).get(step="rial-payment")
         msg.keys = msg.keys.format(url=data, callback="")
         reply_markup = self.generate_keyboards(msg)
         text = msg.text.format(user_id=self.chat_id)
@@ -249,7 +247,7 @@ class UserCallbackHandler(UserTextHandler):
 
     @validators.validate_exists_product
     def back_to_show_countrys(self):
-        msg = Message.objects.get(current_step="buy_phone_number")
+        msg = MessageService(self.user_obj).get(step="buy_phone_number")
         text = self.buy_phone_number(msg)
         reply_markup = self.generate_keyboards(text)
         self.bot.edit_message_text(
@@ -282,7 +280,7 @@ class UserCallbackHandler(UserTextHandler):
         # Cache phone-number for get-login-code rate limit
         cache.set(f"{self.chat_id}:order:get:login:code:{session.phone}", 1)
 
-        msg = Message.objects.filter(current_step="show-phone-number").first()
+        msg = MessageService(self.user_obj).get(step="show-phone-number")
         msg.keys = msg.keys.format(phone=session.phone)
         keys = self.generate_keyboards(msg)
         self.bot.edit_message_text(
@@ -294,12 +292,12 @@ class UserCallbackHandler(UserTextHandler):
 
     def get_login_code(self):
         phone = self.callback_data.split("-")[1]
-        msg = Message.objects.get(current_step="show-login-code")
+        msg = MessageService(self.user_obj).get(step="show-login-code")
 
         # Check get code rate limit
         rate_limit_key = f"{self.chat_id}:order:get:login:code:{phone}"
         if int(cache.get(rate_limit_key) or 0) > int(CONFIG.GET_LOGIN_CODE_LIMIT):
-            msg = Message.objects.get(current_step="limit-login-code-error").text
+            msg = MessageService(self.user_obj).get(step="limit-login-code-error").text
             return self.bot.send_answer_callback_query(
                 self.callback_query_id, msg, show_alert=True
             )

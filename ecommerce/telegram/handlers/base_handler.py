@@ -1,9 +1,8 @@
-import json
-
-from django.contrib.auth import get_user_model
 from django.core.cache import cache
 
-from ecommerce.bot.models import BotUpdateStatus, Message
+from ecommerce.account.models import User
+from ecommerce.bot.models import BotUpdateStatus
+from ecommerce.bot.services import MessageService
 from ecommerce.telegram.deserializers import (
     CallbackUpdateDeSerializer,
     TextUpdateDeserializer,
@@ -20,7 +19,6 @@ from ecommerce.telegram.handlers.user_handlers import (
 )
 from ecommerce.telegram.telegram import Telegram
 
-User = get_user_model()
 my_loop = None
 
 
@@ -118,11 +116,7 @@ class BaseHandler:
             }
 
     def text_handlers(self):
-        msg_step = (
-            Message.objects.filter(key=self.text)
-            .values_list("current_step", flat=True)
-            .first()
-        )
+        msg_step = MessageService(self.user_obj).get_step(key=self.text)
         if msg_step and msg_step.startswith("admin") and not self.user_obj.is_staff:
             return
 
@@ -169,7 +163,7 @@ class BaseCallbackHandler(BaseHandler):
         cached_data = cache.get(self.chat_id)
         if not cached_data:
             self.user_qs.update(step="home")
-            msg = Message.objects.filter(current_step="expired_order").first()
+            msg = MessageService(self.user_obj).get(step="expired_order")
             reply_markup = self.generate_keyboards(msg)
             self.bot.send_message(self.chat_id, msg.text, reply_markup=reply_markup)
         return cached_data
