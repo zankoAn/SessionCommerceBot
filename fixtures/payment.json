@@ -3,7 +3,7 @@
         "model": "payment.transaction",
         "pk": 39,
         "fields": {
-            "payer": 2,
+            "payer": 1,
             "status": "Success Transaction ✅",
             "payment_method": "Cryptocurrency",
             "amount_rial": 77368,
@@ -55,7 +55,7 @@
         "model": "payment.transaction",
         "pk": 43,
         "fields": {
-            "payer": 2,
+            "payer": 1,
             "status": "⏳ In Progress",
             "payment_method": "ZarinPal",
             "amount_rial": null,
@@ -68,7 +68,7 @@
         "model": "payment.transaction",
         "pk": 44,
         "fields": {
-            "payer": 2,
+            "payer": 1,
             "status": "⏳ In Progress",
             "payment_method": "ZarinPal",
             "amount_rial": 40000000,

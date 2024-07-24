@@ -67,7 +67,7 @@
     },
     {
         "model": "product.accountsession",
-        "pk": 22,
+        "pk": 1,
         "fields": {
             "product": 1,
             "proxy": "127.0.0.1:1359",
@@ -85,7 +85,7 @@
     },
     {
         "model": "product.accountsession",
-        "pk": 24,
+        "pk": 2,
         "fields": {
             "product": 6,
             "proxy": "127.0.0.1:1359",
@@ -106,7 +106,7 @@
         "pk": 70,
         "fields": {
             "user": 2,
-            "session": 12,
+            "session": 1,
             "login_code": "(False, None, None)",
             "price": 50000,
             "track_id": "e783f5b253cc",
@@ -119,7 +119,7 @@
         "pk": 71,
         "fields": {
             "user": 2,
-            "session": 22,
+            "session": 2,
             "login_code": "59",
             "price": 20000,
             "track_id": "30e6d3082ab2",
