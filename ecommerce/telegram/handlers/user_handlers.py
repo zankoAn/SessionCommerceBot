@@ -91,8 +91,9 @@ class UserTextHandler:
                 if isinstance(text, Message):
                     reply_markup = self.generate_keyboards(text)
                     text = text.text
-
-            self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
+            # 'text' might be None if the validator decorator sent the message
+            if text:
+                self.bot.send_message(self.chat_id, text, reply_markup=reply_markup)
 
     def run(self):
         self.handler()
